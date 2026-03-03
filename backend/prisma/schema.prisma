@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      Role     @default(TENANT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  qualProfile QualProfile?
+  listings    Listing[]
+  bookings    Booking[]
+  messages    Message[]
+  documents   Document[]
+
+  @@map("users")
+}
+
+model QualProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  annualIncome   Float
+  creditScore    Int
+  idVerified     Boolean  @default(false)
+  incomeVerified Boolean  @default(false)
+  qualScore      Int      @default(0)
+  qualTier       QualTier @default(BRONZE)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("qual_profiles")
+}
+
+model Listing {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  title       String
+  address     String
+  rent        Float
+  beds        Int
+  baths       Float
+  sqft        Int?
+  description String?
+  images      Json?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@map("listings")
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  listingId  String
+  listing    Listing       @relation(fields: [listingId], references: [id])
+  tenantId   String
+  tenant     User          @relation(fields: [tenantId], references: [id])
+  status     BookingStatus @default(PENDING)
+  moveInDate DateTime?
+  qrCode     String?
+  accessCode String?
+  createdAt  DateTime      @default(now())
+
+  @@map("bookings")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename  String
+  url       String
+  type      DocType
+  createdAt DateTime @default(now())
+
+  @@map("documents")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  roomId    String
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@map("chat_messages")
+}
+
+enum Role {
+  TENANT
+  OWNER
+  BROKER
+  ADMIN
+}
+
+enum QualTier {
+  PLATINUM
+  GOLD
+  SILVER
+  BRONZE
+  UNQUALIFIED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum DocType {
+  PAYSTUB
+  ID
+  LEASE
+  VOUCHER
+  OTHER
+}
