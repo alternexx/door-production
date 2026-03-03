@@ -1,111 +1,136 @@
-# DOOR — Production Deployment Guide
+# DOOR — Deployment Guide
 
-## Current Status: ✅ RUNNING LOCALLY
+## Current Status
 
-- **API:** http://localhost:4000 (publicly via Cloudflare tunnel)
-- **Frontend:** http://localhost:4001 (publicly via Cloudflare tunnel)
-- **Database:** PostgreSQL @ localhost:5432/doordb
-- **DB Credentials:** door_user / door_secure_2026
+**Local Production** (running now):
+- App: `http://localhost:4000` (serves frontend + API)
+- DB: PostgreSQL `localhost:5432/doordb`
+- Public: PM2-managed Cloudflare tunnel
 
-## Public URLs (Cloudflare Quick Tunnels — refresh on restart)
-These are temporary. For permanent URLs, deploy to Railway/Vercel below.
+## Services (PM2-managed, auto-restart)
 
-## To Deploy to Cloud (ONE-TIME SETUP — ~10 minutes)
-
-### Step 1: Create Free Accounts
-1. **Railway** (backend) → https://railway.app — Sign up with GitHub
-2. **Vercel** (frontend) → https://vercel.com — Sign up with GitHub
-3. **Neon** (Postgres) → https://neon.tech — Sign up with GitHub
-4. **Cloudinary** (file uploads) → https://cloudinary.com — Free account
-
-### Step 2: Get Neon DB URL
-After signup, create project "door-production" → copy the connection string
-
-### Step 3: Deploy Backend to Railway
 ```bash
-cd /Users/homefolder/Projects/door-production/backend
-railway login
-railway init
-railway up
-
-# Set env vars in Railway dashboard:
-DATABASE_URL=<your-neon-connection-string>
-JWT_SECRET=door-production-jwt-secret-2026-mark-alternex-secure
-CLOUDINARY_CLOUD_NAME=<from-cloudinary>
-CLOUDINARY_API_KEY=<from-cloudinary>
-CLOUDINARY_API_SECRET=<from-cloudinary>
-FRONTEND_URL=<your-vercel-url>
-NODE_ENV=production
+pm2 status                    # check status
+pm2 logs                      # view logs
+pm2 restart all               # restart all services
+pm2 restart door-api          # restart API only
 ```
 
-### Step 4: Run DB Migrations
+PM2 processes:
+- `door-api` — Express API (port 4000) + serves built React frontend
+- `door-tunnel` — Cloudflare Quick Tunnel (public URL)
+
+**Note:** Quick tunnel URL changes on restart. Run this to get current URL:
 ```bash
-DATABASE_URL=<neon-url> node migrate.js
+curl -s http://localhost:20241/metrics | grep -o '"https://[^"]*"' | tr -d '"'
 ```
 
-### Step 5: Deploy Frontend to Vercel
+## Database Access
+
+```bash
+/opt/homebrew/Cellar/postgresql@16/16.13/bin/psql "postgresql://door_user:door_secure_2026@localhost:5432/doordb"
+```
+
+Tables: `users`, `qual_profiles`, `listings`, `bookings`, `documents`, `chat_messages`
+
+## Rebuild Frontend
+
 ```bash
 cd /Users/homefolder/Projects/door-production/frontend
+npm run build
+pm2 restart door-api  # to serve new build
+```
+
+---
+
+## Cloud Deployment (Railway + Vercel + Neon)
+
+### Step 1: Create GitHub Repo
+
+```bash
+gh auth login
+cd /Users/homefolder/Projects/door-production
+gh repo create door-production --private --source=. --push
+```
+
+### Step 2: Neon PostgreSQL (cloud DB)
+
+1. Go to https://neon.tech → Create account
+2. Create project: `door-production`
+3. Copy connection string (starts with `postgres://`)
+
+### Step 3: Deploy Backend to Railway
+
+```bash
+railway login
+cd /Users/homefolder/Projects/door-production/backend
+railway init
+railway add --name door-api
+railway domain  # get your public URL
+```
+
+Set environment variables in Railway dashboard:
+```
+DATABASE_URL=<neon-connection-string>
+JWT_SECRET=door-production-jwt-secret-2026-mark-alternex-secure
+NODE_ENV=production
+PORT=3737
+FRONTEND_URL=https://your-vercel-domain.vercel.app
+```
+
+### Step 4: Deploy Frontend to Vercel
+
+```bash
 vercel login
-# Set VITE_API_URL=https://<your-railway-url>/api
+cd /Users/homefolder/Projects/door-production/frontend
 vercel --prod
 ```
 
-## API Endpoints Reference
-
-### Auth
-- `POST /api/auth/register` — Create account
-- `POST /api/auth/login` — Sign in → get JWT token
-- `GET /api/auth/me` — Get current user
-
-### Qualification
-- `POST /api/qual/submit` — Run ID + income + credit verification
-- `GET /api/qual/profile` — Get qual profile
-
-### Listings
-- `GET /api/listings` — All listings with AI match scores
-- `GET /api/listings/:id` — Single listing
-- `POST /api/listings` — Create listing (owner/broker role)
-
-### Bookings
-- `POST /api/bookings` — 1-tap book with QR key generation
-- `GET /api/bookings/mine` — My bookings
-- `DELETE /api/bookings/:id` — Cancel booking
-
-### Documents
-- `POST /api/uploads/document` — Upload file (multipart)
-- `GET /api/uploads/my-documents` — My documents
-- `DELETE /api/uploads/document/:id` — Delete document
-
-## Database Access (Dev)
-```bash
-psql "postgresql://door_user:door_secure_2026@localhost:5432/doordb"
-
-# Useful queries:
-SELECT * FROM users;
-SELECT * FROM qual_profiles;
-SELECT * FROM listings WHERE active = true;
-SELECT * FROM bookings;
-SELECT * FROM documents;
+Set environment variable:
+```
+VITE_API_URL=https://your-railway-domain.railway.app/api
 ```
 
-## Restart Services (if machine restarts)
+### Step 5: Rebuild + Re-deploy Frontend
+
+After setting VITE_API_URL:
 ```bash
-# Start PostgreSQL
-brew services start postgresql@16
-
-# Start API
-cd /Users/homefolder/Projects/door-production/backend
-PORT=4000 nohup node server.js > /tmp/door-api.log 2>&1 &
-
-# Start Frontend
-cd /Users/homefolder/Projects/door-production/frontend/dist
-nohup npx serve -s . -p 4001 > /tmp/door-frontend.log 2>&1 &
-
-# Create tunnels (generates new URLs each time)
-cloudflared tunnel --url http://localhost:4000 > /tmp/tunnel-api.log 2>&1 &
-cloudflared tunnel --url http://localhost:4001 > /tmp/tunnel-frontend.log 2>&1 &
-sleep 5
-grep -o "https://[a-z0-9-]*\.trycloudflare\.com" /tmp/tunnel-api.log | head -1
-grep -o "https://[a-z0-9-]*\.trycloudflare\.com" /tmp/tunnel-frontend.log | head -1
+cd frontend && npm run build
+vercel --prod
 ```
+
+---
+
+## Environment Variables
+
+### Backend (Railway)
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Neon PostgreSQL connection string |
+| `JWT_SECRET` | `door-production-jwt-secret-2026-mark-alternex-secure` |
+| `NODE_ENV` | `production` |
+| `PORT` | `3737` |
+| `CLOUDINARY_CLOUD_NAME` | (optional) Cloudinary name |
+| `CLOUDINARY_API_KEY` | (optional) |
+| `CLOUDINARY_API_SECRET` | (optional) |
+| `FRONTEND_URL` | Vercel URL |
+
+### Frontend (Vercel)
+| Variable | Value |
+|---|---|
+| `VITE_API_URL` | `https://your-railway-url/api` |
+
+---
+
+## Optional: Cloudinary (Production File Storage)
+
+1. Create account at cloudinary.com
+2. Get credentials from dashboard
+3. Add to Railway env vars
+4. Files auto-route to Cloudinary when env vars are set
+
+Without Cloudinary, files upload to local disk (works fine for demos/testing).
+
+---
+
+*Built by Alternex for Mark.*

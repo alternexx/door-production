@@ -1,57 +1,51 @@
 #!/bin/bash
-# DOOR Production Startup Script
+# DOOR Production — Start Script
 set -e
 
-echo "🚪 Starting DOOR Production Stack..."
-
-# Start PostgreSQL
-echo "📦 Starting PostgreSQL..."
-brew services start postgresql@16 2>/dev/null || true
-sleep 2
-
-# Start API via PM2
-echo "⚡ Starting DOOR API..."
 cd /Users/homefolder/Projects/door-production
-pm2 start ecosystem.config.js --update-env 2>/dev/null || pm2 restart door-api 2>/dev/null
 
-sleep 2
+echo "🚪 Starting DOOR Production..."
 
-# Verify API is up
-curl -s http://localhost:4000/api/health > /dev/null && echo "✅ API running on :4000" || echo "❌ API failed"
+# Check PostgreSQL
+/opt/homebrew/Cellar/postgresql@16/16.13/bin/pg_ctl status -D /opt/homebrew/var/postgresql@16 2>/dev/null || {
+  echo "Starting PostgreSQL..."
+  /opt/homebrew/Cellar/postgresql@16/16.13/bin/pg_ctl start -D /opt/homebrew/var/postgresql@16 2>/dev/null || true
+  sleep 2
+}
 
-# Start frontend server
-echo "🌐 Starting frontend..."
-pkill -f "serve.*4001" 2>/dev/null || true
-sleep 1
-cd /Users/homefolder/Projects/door-production/frontend/dist
-nohup npx serve -s . -p 4001 > /tmp/door-frontend.log 2>&1 &
-sleep 2
-curl -s http://localhost:4001 -o /dev/null && echo "✅ Frontend running on :4001" || echo "❌ Frontend failed"
+# Restart PM2 processes
+pm2 restart all 2>/dev/null || pm2 start ecosystem.config.js
+pm2 save
 
-# Create public tunnels
-echo "🌍 Creating Cloudflare tunnels..."
-pkill -f "cloudflared.*4000" 2>/dev/null || true
-pkill -f "cloudflared.*4001" 2>/dev/null || true
-sleep 1
+sleep 5
 
-nohup cloudflared tunnel --url http://localhost:4000 --no-autoupdate > /tmp/tunnel-api.log 2>&1 &
-nohup cloudflared tunnel --url http://localhost:4001 --no-autoupdate > /tmp/tunnel-frontend.log 2>&1 &
+# Get tunnel URL
+TUNNEL_URL=""
+for port in 20241 20242 20243 20244 20245; do
+  result=$(curl -s --max-time 2 http://localhost:$port/metrics 2>/dev/null | grep "userHostname" | grep -o '"https://[^"]*"' | tr -d '"')
+  if [ -n "$result" ]; then
+    TUNNEL_URL="$result"
+    break
+  fi
+done
 
-echo "⏳ Waiting for tunnels..."
-sleep 6
-
-API_URL=$(grep -o "https://[a-z0-9-]*\.trycloudflare\.com" /tmp/tunnel-api.log 2>/dev/null | head -1)
-FRONTEND_URL=$(grep -o "https://[a-z0-9-]*\.trycloudflare\.com" /tmp/tunnel-frontend.log 2>/dev/null | head -1)
+# Wait for tunnel if not ready
+if [ -z "$TUNNEL_URL" ]; then
+  echo "Waiting for Cloudflare tunnel..."
+  sleep 8
+  for port in 20241 20242 20243 20244 20245; do
+    result=$(curl -s --max-time 2 http://localhost:$port/metrics 2>/dev/null | grep "userHostname" | grep -o '"https://[^"]*"' | tr -d '"')
+    if [ -n "$result" ]; then
+      TUNNEL_URL="$result"
+      break
+    fi
+  done
+fi
 
 echo ""
-echo "======================================================"
-echo "🚪 DOOR is LIVE!"
+echo "✅ DOOR is LIVE!"
+echo "   Local:  http://localhost:4000"
+if [ -n "$TUNNEL_URL" ]; then
+  echo "   Public: $TUNNEL_URL"
+fi
 echo ""
-echo "  Frontend: $FRONTEND_URL"
-echo "  API:      $API_URL"
-echo ""
-echo "  Local Frontend: http://localhost:4001"
-echo "  Local API:      http://localhost:4000"
-echo "======================================================"
-echo ""
-echo "📊 DB: psql \"postgresql://door_user:door_secure_2026@localhost:5432/doordb\""
