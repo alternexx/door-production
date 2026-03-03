@@ -86,6 +86,18 @@ io.on('connection', (socket) => {
 const uploadsPath = path.join(__dirname, '../uploads');
 app.use('/files', express.static(uploadsPath));
 
+// ─── Serve React Frontend (SPA) ─────────────────────────────────────────────
+const frontendDist = path.join(__dirname, '../frontend/dist');
+const fs = require('fs');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  // SPA fallback — any non-API route serves index.html
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/files/')) return next();
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
 // ─── 404 & Error Handler ─────────────────────────────────────────────────────
 app.use('/api/*', (req, res) => res.status(404).json({ error: 'Endpoint not found' }));
 app.use((err, req, res, next) => {

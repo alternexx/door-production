@@ -10,6 +10,7 @@ const QualPage     = lazy(() => import('./pages/QualPage'));
 const ListingsPage = lazy(() => import('./pages/ListingsPage'));
 const BookingsPage = lazy(() => import('./pages/BookingsPage'));
 const DocumentsPage= lazy(() => import('./pages/DocumentsPage'));
+const ChatPage     = lazy(() => import('./pages/ChatPage'));
 const Layout       = lazy(() => import('./components/Layout'));
 
 function ProtectedRoute({ children }) {
@@ -54,6 +55,7 @@ function AppRoutes() {
           <Route path="listings" element={<ListingsPage />} />
           <Route path="bookings" element={<BookingsPage />} />
           <Route path="documents" element={<DocumentsPage />} />
+          <Route path="chat" element={<ChatPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -297,8 +297,10 @@ select.form-input {
 }
 
 /* Mobile */
+.show-mobile { display:none; }
 @media (max-width:768px) {
   .hide-mobile { display:none !important; }
+  .show-mobile { display:flex !important; }
   .modal-box { border-radius:var(--radius-lg); }
   .btn-lg { padding:12px 24px; font-size:15px; }
 }

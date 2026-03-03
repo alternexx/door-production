@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
 import {
-  Home, Search, CheckCircle, BookOpen, FileText, LogOut, Menu, X, ChevronRight
+  Home, Search, CheckCircle, BookOpen, FileText, LogOut, Menu, X, ChevronRight, MessageCircle
 } from 'lucide-react';
 
 const TIER_COLORS = {
@@ -38,6 +38,7 @@ const NAV = [
   { to: '/listings',  label: 'Listings',   Icon: Search },
   { to: '/bookings',  label: 'Bookings',   Icon: BookOpen },
   { to: '/documents', label: 'Documents',  Icon: FileText },
+  { to: '/chat',      label: 'Chat',       Icon: MessageCircle },
 ];
 
 export default function Layout() {
