@@ -275,6 +275,7 @@ export function DealTable({
 
 
   useEffect(() => {
+    if (typeof window === "undefined") return
     const stored = localStorage.getItem("fmdashboard_notes_preview")
     if (stored === "false") setNotesPreviewEnabled(false)
   }, [])
@@ -430,7 +431,7 @@ export function DealTable({
       result = result.filter((d) => resolveDealAgents(d).some((a) => a.id === currentUserId))
     }
     if (filters.staleOnly) {
-      const staleDays = parseInt(localStorage.getItem("door-config-threshold-stale-days") || "7", 10)
+      const staleDays = parseInt((typeof window !== "undefined" ? localStorage.getItem("door-config-threshold-stale-days") : null) || "7", 10)
       result = result.filter(d => {
         const daysSince = Math.floor((Date.now() - new Date(d.updatedAt).getTime()) / 86400000)
         return daysSince >= staleDays && !d.isArchived
@@ -486,7 +487,7 @@ export function DealTable({
     // If stale-at-top preference is on, move stale deals before non-stale
     const staleAtTop = localStorage.getItem("door-stale-deals-top") === "true"
     if (staleAtTop && !filters.archivedOnly) {
-      const staleDays = parseInt(localStorage.getItem("door-config-threshold-stale-days") || "7", 10)
+      const staleDays = parseInt((typeof window !== "undefined" ? localStorage.getItem("door-config-threshold-stale-days") : null) || "7", 10)
       const isStale = (d: Deal) => Math.floor((Date.now() - new Date(d.updatedAt).getTime()) / 86400000) >= staleDays && !d.isArchived
       result = [
         ...result.filter(d => isStale(d)),
@@ -1642,7 +1643,7 @@ export function DealTable({
       case "stale": {
         const showStaleTag = localStorage.getItem("door-config-alert-stale-tag") !== "false"
         if (!showStaleTag || deal.isArchived) return null
-        const staleDays = parseInt(localStorage.getItem("door-config-threshold-stale-days") || "7", 10)
+        const staleDays = parseInt((typeof window !== "undefined" ? localStorage.getItem("door-config-threshold-stale-days") : null) || "7", 10)
         const daysSince = Math.floor((Date.now() - new Date(deal.updatedAt).getTime()) / 86400000)
         if (daysSince < staleDays) return <span className="text-muted-foreground/30 text-[11px]">—</span>
         return (
