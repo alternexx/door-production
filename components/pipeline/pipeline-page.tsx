@@ -111,8 +111,8 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
   function applyConfigOverrides(rawStages: typeof dbStages, v2Key: string) {
     if (typeof window === "undefined") return rawStages;
     try {
-      const configStages = localStorage.getItem(`door-config-stages-${v2Key}`);
-      const configColors = localStorage.getItem(`door-config-stage-colors-${v2Key}`);
+      const configStages = typeof window !== "undefined" ? localStorage.getItem(`door-config-stages-${v2Key}`) : null;
+      const configColors = typeof window !== "undefined" ? localStorage.getItem(`door-config-stage-colors-${v2Key}`) : null;
       const parsedNames: string[] | null = configStages ? JSON.parse(configStages) : null;
       const parsedColors: Record<string, string> | null = configColors ? JSON.parse(configColors) : null;
       if (parsedNames && parsedNames.length > 0) {
