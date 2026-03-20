@@ -1,0 +1,117 @@
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Search, Check, X } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+interface Agent {
+  id: number
+  name: string
+  color: string
+}
+
+interface AgentShelfProps {
+  open: boolean
+  onClose: () => void
+  agents: Agent[]
+  selectedIds: number[]
+  onToggle: (id: number) => void
+  anchorRef?: React.RefObject<HTMLElement>
+}
+
+export function AgentShelf({ open, onClose, agents, selectedIds, onToggle }: AgentShelfProps) {
+  const [search, setSearch] = useState("")
+  const ref = useRef<HTMLDivElement>(null)
+  const handleClose = () => {
+    setSearch("")
+    onClose()
+  }
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        handleClose()
+      }
+    }
+    document.addEventListener("mousedown", handle)
+    return () => document.removeEventListener("mousedown", handle)
+  }, [open, onClose])
+
+  const filtered = agents.filter((a) =>
+    a.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={ref}
+          initial={{ opacity: 0, x: 8, scale: 0.97 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 8, scale: 0.97 }}
+          transition={{ type: "spring", stiffness: 420, damping: 26 }}
+          className="absolute right-0 top-0 z-50 w-[240px] rounded-xl border bg-popover shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between px-3 pt-3 pb-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agents</span>
+            <button
+              onClick={handleClose}
+              className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="px-3 pb-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 h-8 text-xs"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="space-y-0.5 max-h-[280px] overflow-y-auto px-2 pb-2">
+            {filtered.map((agent) => {
+              const isSelected = selectedIds.includes(agent.id)
+              return (
+                <button
+                  key={agent.id}
+                  onClick={() => onToggle(agent.id)}
+                  className={cn(
+                    "w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-left transition-colors",
+                    isSelected ? "bg-accent" : "hover:bg-accent/50"
+                  )}
+                >
+                  <span
+                    className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                    style={{ backgroundColor: agent.color }}
+                  >
+                    {agent.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </span>
+                  <span className="flex-1 text-sm">{agent.name}</span>
+                  {isSelected && <Check className="h-3.5 w-3.5 text-[var(--fm-amber)]" />}
+                </button>
+              )
+            })}
+            {filtered.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-3">No agents found</p>
+            )}
+          </div>
+          <div className="flex items-center justify-between px-3 py-2 border-t">
+            <span className="text-[11px] text-muted-foreground">{selectedIds.length} selected</span>
+            <Button size="sm" onClick={handleClose} className="h-7 text-xs">Done</Button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
