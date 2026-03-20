@@ -1,5 +1,8 @@
 {
   "packages": {
     "node": "20"
+  },
+  "deploy": {
+    "startCommand": "npm start"
   }
 }
