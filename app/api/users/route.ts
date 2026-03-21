@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { ilike } from "drizzle-orm";
+import { ilike, ne } from "drizzle-orm";
 
 export async function GET() {
-  const teamMembers = await db.select().from(users);
+  const teamMembers = await db.select().from(users).where(ne(users.name, "[deleted]"));
   return NextResponse.json(teamMembers);
 }
 
