@@ -21,7 +21,7 @@ import {
 import { useState } from "react";
 import { useSidebar } from "@/context/sidebar-context";
 import { useSettingsModal } from "@/context/settings-modal-context";
-import { useClerk } from "@clerk/nextjs";
+import { useClerk, useUser } from "@clerk/nextjs";
 
 const pipelineItems = [
   { label: "Rentals", href: "/pipeline/rentals", icon: Home },
@@ -78,6 +78,7 @@ export function Sidebar() {
   const { collapsed, setCollapsed } = useSidebar();
   const { openSettings } = useSettingsModal();
   const { signOut } = useClerk();
+  const { user } = useUser();
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -200,9 +201,13 @@ export function Sidebar() {
           effectiveCollapsed ? "justify-center px-0" : "px-4"
         )}
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fm-amber)] text-white text-xs font-medium shrink-0">
-          SC
-        </div>
+        {user?.imageUrl ? (
+          <img src={user.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fm-amber)] text-white text-xs font-medium shrink-0">
+            {(user?.firstName ?? user?.emailAddresses[0]?.emailAddress ?? "?")[0].toUpperCase()}
+          </div>
+        )}
         {!effectiveCollapsed && (
           <span className="text-[13px] text-[var(--fm-text-secondary)] truncate">Sign out</span>
         )}

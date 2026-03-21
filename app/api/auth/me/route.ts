@@ -1,21 +1,24 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const user = await getCurrentUser();
 
-    if (!userId) {
-      return NextResponse.json({ unauthorized: true });
+    if (user === null && process.env.NODE_ENV !== "development") {
+      // Signed in via Clerk but no DB row — need to check if they have a Clerk session
+      const { auth } = await import("@clerk/nextjs/server");
+      const { userId } = await auth();
+
+      if (!userId) {
+        return NextResponse.json({ unauthorized: true });
+      }
+
+      return NextResponse.json({ needsSetup: true });
     }
 
-    const [user] = await db.select().from(users).where(eq(users.clerkId, userId)).limit(1);
-
     if (!user) {
-      return NextResponse.json({ blocked: true });
+      return NextResponse.json({ unauthorized: true });
     }
 
     if (!user.isActive) {
