@@ -91,6 +91,7 @@ export default function TeamPage() {
   }, []);
 
   const filtered = agents.filter((a) => {
+    if (a.name === "[deleted]") return false;
     const q = search.toLowerCase();
     return a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q);
   });
