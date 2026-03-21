@@ -79,8 +79,18 @@ export function AgentChip({ agent, mode = "initials", className, onRemove, onCli
 
   return (
     <span
-      className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-150 hover:scale-105", className)}
-      style={{ backgroundColor: bg, color: agent.color, border: `0.5px solid ${border}` }}
+      className={cn(
+        "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-150 hover:scale-105",
+        onClick && "cursor-pointer",
+        className
+      )}
+      style={{
+        backgroundColor: active ? hexToRgba(agent.color, 0.3) : bg,
+        color: agent.color,
+        border: `0.5px solid ${active ? hexToRgba(agent.color, 0.8) : border}`,
+        ...(active ? { boxShadow: `0 0 0 1.5px ${hexToRgba(agent.color, 0.5)}` } : {}),
+      }}
+      onClick={onClick ? (e) => { e.stopPropagation(); onClick(agent.id) } : undefined}
     >
       {agent.name}
     </span>

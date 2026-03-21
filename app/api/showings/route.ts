@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
         agentId: body.agentId ?? currentUser.id,
         scheduledAt: new Date(body.scheduledAt),
         status: "scheduled",
+        showingType: body.showingType === "open_house" ? "open_house" : "private",
       })
       .returning();
 

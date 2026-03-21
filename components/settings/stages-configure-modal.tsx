@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { GripVertical, Trash2, Plus, X } from "lucide-react";
+import { GripVertical, Trash2, Plus, X, PieChart } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +47,7 @@ const _ROWS: string[][] = [
   ["#312e81","#3730a3","#4338ca","#4f46e5","#6366f1","#818cf8","#a5b4fc","#c7d2fe","#e0e7ff"], // Indigo
   ["#4c1d95","#5b21b6","#6d28d9","#7c3aed","#8b5cf6","#a78bfa","#c4b5fd","#ddd6fe","#ede9fe"], // Purple
   ["#831843","#9d174d","#be185d","#db2777","#ec4899","#f472b6","#f9a8d4","#fbcfe8","#fce7f3"], // Pink
+  ["#000000","#1f1f1f","#404040","#595959","#808080","#a6a6a6","#bfbfbf","#d9d9d9","#ffffff"], // Grayscale
 ];
 const PRESET_COLORS: string[] = _ROWS.flat();
 
@@ -312,6 +313,7 @@ interface DbStage {
   color: string;
   dealType: string;
   orderIndex: number;
+  outcome?: string | null;
 }
 
 export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModalProps) {
@@ -323,10 +325,15 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
   const [stageColors, setStageColors] = useState<Record<string, string>>({});
   const [dbStages, setDbStages] = useState<DbStage[]>([]);
   const [archiveDbStages, setArchiveDbStages] = useState<DbStage[]>([]);
+  // Track rename history: newName → original DB stage id
+  const renameMapRef = useRef<Record<string, string>>({});
   const [key, setKey] = useState(0);
   const [colorShelfOpen, setColorShelfOpen] = useState(false);
   const [colorShelfStage, setColorShelfStage] = useState<string | null>(null);
   const [colorShelfCurrent, setColorShelfCurrent] = useState<string>(PRESET_COLORS[0]);
+  const [outcomeShelfOpen, setOutcomeShelfOpen] = useState(false);
+  const [outcomeShelfStageId, setOutcomeShelfStageId] = useState<string | null>(null);
+  const [outcomeShelfCurrent, setOutcomeShelfCurrent] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const fetchedTabRef = useRef<string | null>(null);
@@ -416,6 +423,13 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
         for (const s of stages) dbColorsByName[s.name] = s.color;
         const localColors = loadStageColorsFromStorage(activeDealType, "door-config");
         setStageColors({ ...dbColorsByName, ...localColors });
+
+        // Always set items from DB — DB is source of truth for stage names/order
+        if (stages.length > 0) {
+          const dbItems = stages.map((s, i) => toId(s.name, i));
+          setItems(dbItems);
+          setKey(k => k + 1);
+        }
       })
       .catch(() => {});
   }, [open, activeDealType, viewMode]);
@@ -449,7 +463,7 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const doClose = () => { setIsDirty(false); setPendingAction(null); onOpenChange(false); };
+  const doClose = () => { setIsDirty(false); setPendingAction(null); renameMapRef.current = {}; onOpenChange(false); };
   const doTabChange = (tab: DealTypeTabKey) => {
     fetchedTabRef.current = null;
     fetchedArchiveTabRef.current = null;
@@ -469,34 +483,58 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
 
   const handleSave = () => {
     if (viewMode === "pipeline") {
+      // Only save group config + colors to localStorage (not stage names — DB is source of truth)
       saveItems(items, activeDealType, groupNames, staticGroupName);
       saveColors(stageColors, activeDealType);
 
-      // Sync changed stage colors to DB
-      const colorPatches: Promise<unknown>[] = [];
-      for (const id of items.filter(i => !isGroupId(i))) {
+      // Sync all changes to DB
+      const stageItems = items.filter(i => !isGroupId(i));
+      const pipelinePatches: Promise<unknown>[] = [];
+      for (let i = 0; i < stageItems.length; i++) {
+        const id = stageItems[i];
         const stageName = fromId(id);
         const color = stageColors[stageName];
-        if (!color) continue;
-        const dbStage = dbStages.find(s => s.name === stageName);
-        if (!dbStage || dbStage.color === color) continue;
-        colorPatches.push(
-          fetch(`/api/stages/${dbStage.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ color }),
-          })
-        );
+        // Find DB stage by rename map first, then by name
+        const dbStageId = renameMapRef.current[stageName]
+        const dbStage = dbStageId
+          ? dbStages.find(s => s.id === dbStageId)
+          : dbStages.find(s => s.name === stageName)
+        if (!dbStage) continue;
+        const updates: Record<string, unknown> = {};
+        if (dbStage.name !== stageName) updates.name = stageName;
+        if (color && dbStage.color !== color) updates.color = color;
+        if (dbStage.orderIndex !== i) updates.orderIndex = i;
+        if (Object.keys(updates).length > 0) {
+          pipelinePatches.push(
+            fetch(`/api/stages/${dbStage.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updates),
+            })
+          );
+        }
       }
-      if (colorPatches.length > 0) {
-        Promise.all(colorPatches)
-          .then(() => {
-            setDbStages(prev =>
-              prev.map(s => stageColors[s.name] ? { ...s, color: stageColors[s.name] } : s)
-            );
-          })
-          .catch(() => {});
-      }
+
+      Promise.all(pipelinePatches)
+        .then(() => {
+          renameMapRef.current = {};
+          // Re-fetch DB stages to sync local state
+          fetchedTabRef.current = null;
+          const dbDealType = tabToDbDealType[activeDealType];
+          return fetch(`/api/stages?dealType=${dbDealType}&archive=false`).then(r => r.ok ? r.json() : []);
+        })
+        .then((stages: DbStage[]) => {
+          if (stages.length > 0) {
+            setDbStages(stages);
+            const dbItems = stages.map((s, i) => toId(s.name, i));
+            setItems(dbItems);
+            fetchedTabRef.current = activeDealType; // prevent auto-refetch from useEffect
+          }
+          window.dispatchEvent(new Event("door:stages-updated"));
+        })
+        .catch(() => {
+          window.dispatchEvent(new Event("door:stages-updated"));
+        });
 
       // Compute and save group membership
       const markerIds = items.filter(id => isGroupId(id));
@@ -640,13 +678,16 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
 
   // id = "StageName:::index", newName = plain string
   const handleRename = (id: string, newName: string) => {
-    // Replace the ID with a new ID using the new name (keep index part for uniqueness)
     const index = id.includes(":::") ? id.split(":::")[1] : String(items.indexOf(id));
     const newId = toId(newName, parseInt(index));
+    const oldName = fromId(id);
     setItems(prev => prev.map(s => s === id ? newId : s));
     setIsDirty(true);
+    // Track rename: find DB stage id for this name
+    const dbStage = dbStages.find(s => s.name === oldName) || dbStages.find(s => s.name === (renameMapRef.current[oldName] ? oldName : ""))
+    const originalDbId = dbStage?.id || renameMapRef.current[oldName]
+    if (originalDbId) renameMapRef.current[newName] = originalDbId
     // Move color from old name to new name
-    const oldName = fromId(id);
     if (stageColors[oldName]) {
       const newColors = { ...stageColors, [newName]: stageColors[oldName] };
       delete newColors[oldName];
@@ -659,18 +700,23 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
     if (stageCount <= 1) return;
     setItems(prev => prev.filter(s => s !== id));
     setIsDirty(true);
-    // Archive mode: immediately delete from DB if it's an existing stage
-    if (viewMode === "archive" && !id.startsWith("new-") && !id.includes(":::")) {
-      fetch(`/api/stages/${id}`, { method: "DELETE" }).catch(() => {});
-    } else if (viewMode === "archive") {
-      // Find in archiveDbStages by name
-      const name = fromId(id);
-      const dbStage = archiveDbStages.find(s => s.name === name);
-      if (dbStage) {
-        fetch(`/api/stages/${dbStage.id}`, { method: "DELETE" })
-          .then(r => { if (!r.ok) console.warn("Could not delete stage — may be in use"); })
-          .catch(() => {});
-      }
+
+    const name = fromId(id);
+    const stageList = viewMode === "archive" ? archiveDbStages : dbStages;
+    const dbStage = stageList.find(s => s.name === name);
+
+    if (dbStage) {
+      fetch(`/api/stages/${dbStage.id}`, { method: "DELETE" })
+        .then(r => {
+          if (!r.ok) console.warn("Could not delete stage — may be in use");
+          else {
+            // Remove from local dbStages state too
+            if (viewMode === "archive") setArchiveDbStages(prev => prev.filter(s => s.id !== dbStage.id));
+            else setDbStages(prev => prev.filter(s => s.id !== dbStage.id));
+            window.dispatchEvent(new Event("door:stages-updated"));
+          }
+        })
+        .catch(() => {});
     }
   };
 
@@ -739,15 +785,43 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
                         const groupNum = items.slice(0, i + 1).filter(x => isGroupId(x)).length + 1;
                         return <SortableGroupBlock key={id} id={id} placeholder={`Group ${groupNum}`} name={groupNames[id] || ""} onNameChange={(v) => { setGroupNames(prev => ({ ...prev, [id]: v })); setIsDirty(true); }} onDelete={() => { setItems(prev => prev.filter(x => x !== id)); setGroupNames(prev => { const n = { ...prev }; delete n[id]; return n; }); setIsDirty(true); }} />;
                       }
+                      const stageName = fromId(id);
+                      const dbStage = (viewMode === "archive" ? archiveDbStages : dbStages).find(s => s.name === stageName);
+                      const showOutcome = viewMode === "archive";
                       return (
-                        <SortableStageItem
-                          key={id} id={id} stage={fromId(id)}
-                          color={getStageColor(id)}
-                          onRename={(_, newName) => handleRename(id, newName)}
-                          onDelete={() => handleDelete(id)}
-                          onOpenColorShelf={(_, currentColor) => handleOpenColorShelf(id, currentColor)}
-                          canDelete={items.filter(s => !isGroupId(s)).length > 1}
-                        />
+                        <div key={id} className="flex items-center gap-1">
+                          <div className="flex-1 min-w-0">
+                            <SortableStageItem
+                              id={id} stage={stageName}
+                              color={getStageColor(id)}
+                              onRename={(_, newName) => handleRename(id, newName)}
+                              onDelete={() => handleDelete(id)}
+                              onOpenColorShelf={(_, currentColor) => handleOpenColorShelf(id, currentColor)}
+                              canDelete={items.filter(s => !isGroupId(s)).length > 1}
+                            />
+                          </div>
+                          {showOutcome && dbStage && (
+                            <button
+                              type="button"
+                              title={`Outcome: ${dbStage.outcome ?? "Unlabeled"}`}
+                              onClick={() => {
+                                setColorShelfOpen(false);
+                                setOutcomeShelfStageId(dbStage.id);
+                                setOutcomeShelfCurrent(dbStage.outcome ?? null);
+                                setOutcomeShelfOpen(true);
+                              }}
+                              className={cn(
+                                "shrink-0 h-7 w-7 flex items-center justify-center rounded hover:bg-accent transition-colors mr-1",
+                                dbStage.outcome === "win" ? "text-green-600" :
+                                dbStage.outcome === "loss" ? "text-red-500" :
+                                dbStage.outcome === "na" ? "text-muted-foreground" :
+                                "text-muted-foreground/40 hover:text-muted-foreground"
+                              )}
+                            >
+                              <PieChart className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </SortableContext>
@@ -834,6 +908,61 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
                         />
                       ))}
                     </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          {/* Outcome Shelf */}
+          <div style={{
+            position: "absolute", top: 0, left: "100%",
+            width: outcomeShelfOpen ? 200 : 0, height: "100%",
+            borderLeft: outcomeShelfOpen ? "1px solid var(--border)" : "none",
+            borderRadius: "0 12px 12px 0", background: "var(--background)",
+            boxShadow: outcomeShelfOpen ? "4px 0 16px rgba(0,0,0,0.08)" : "none",
+            transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+            overflow: "hidden", display: "flex", flexDirection: "column", zIndex: 10,
+          }}>
+            <div style={{ width: 200, display: "flex", flexDirection: "column", height: "100%" }}>
+              {outcomeShelfOpen && (
+                <>
+                  <div className="flex items-center justify-between px-3.5 py-3 border-b">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Outcome</span>
+                    <button onClick={() => setOutcomeShelfOpen(false)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="px-3 py-3 space-y-1.5">
+                    {([
+                      { value: "win", label: "Win", color: "text-green-600", bg: "hover:bg-green-500/10" },
+                      { value: "loss", label: "Loss", color: "text-red-500", bg: "hover:bg-red-500/10" },
+                      { value: "na", label: "Not Applicable", color: "text-muted-foreground", bg: "hover:bg-muted/50" },
+                      { value: null, label: "Unlabeled", color: "text-muted-foreground/50", bg: "hover:bg-muted/30" },
+                    ] as const).map(opt => (
+                      <button
+                        key={String(opt.value)}
+                        type="button"
+                        onClick={() => {
+                          if (!outcomeShelfStageId) return;
+                          fetch(`/api/stages/${outcomeShelfStageId}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ outcome: opt.value }),
+                          }).catch(() => {});
+                          setArchiveDbStages(prev => prev.map(s => s.id === outcomeShelfStageId ? { ...s, outcome: opt.value } : s));
+                          setOutcomeShelfCurrent(opt.value);
+                          setOutcomeShelfOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
+                          opt.color, opt.bg,
+                          outcomeShelfCurrent === opt.value && "bg-muted font-medium"
+                        )}
+                      >
+                        {outcomeShelfCurrent === opt.value && <span className="text-[10px]">✓</span>}
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
                 </>
               )}

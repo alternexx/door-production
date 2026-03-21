@@ -249,6 +249,11 @@ export function DealProvider({ children }: { children: ReactNode }) {
       }
     };
     loadFromDb();
+
+    // Listen for stage config changes from the configure modal
+    const handler = () => { setDbLoaded(false); };
+    window.addEventListener("door:stages-updated", handler);
+    return () => window.removeEventListener("door:stages-updated", handler);
   }, [dbLoaded]);
 
   const getStages = useCallback((dealType: DealType) => stagesByType[dealType], [stagesByType]);

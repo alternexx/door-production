@@ -224,7 +224,7 @@ export function Sidebar() {
 
       {/* Mobile sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-[220px] transform transition-transform lg:hidden",
+        "fixed inset-y-0 left-0 z-50 w-[192px] transform transition-transform lg:hidden",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {sidebarContent}
@@ -232,8 +232,8 @@ export function Sidebar() {
 
       {/* Desktop sidebar */}
       <aside
-        className="hidden lg:fixed lg:inset-y-0 lg:flex border-r border-[var(--sidebar-border)] overflow-hidden transition-all duration-200 z-30"
-        style={{ width: effectiveCollapsed ? 0 : 220 }}
+        className="hidden lg:fixed lg:inset-y-0 lg:flex overflow-hidden transition-all duration-200 z-30"
+        style={{ width: effectiveCollapsed ? 0 : 192 }}
         onMouseEnter={() => { if (collapsed) setPeeking(true); }}
         onMouseLeave={() => { if (collapsed) setPeeking(false); }}
       >

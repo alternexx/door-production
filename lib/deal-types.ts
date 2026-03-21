@@ -176,11 +176,9 @@ export const dealTypes: Record<string, DealTypeConfig> = {
       "Peer Review",
       "Pending Landlord Feedback",
       "Pending Lease Signing and Payments",
-      "Lease Signed and Paid",
-      "Welcome Email Sent",
       "Moved In/Closed",
-      "Rental Backed Out",
       "Rental Rejected",
+      "Applicant Withdrew",
     ],
     fields: [
       { key: "applicant", label: "Applicant", type: "text", required: true },
@@ -188,6 +186,7 @@ export const dealTypes: Record<string, DealTypeConfig> = {
       { key: "unit", label: "Unit", type: "text" },
       { key: "agent1_id", label: "Agent", type: "agent" },
       { key: "source", label: "Source", type: "text" },
+      { key: "application_price", label: "Rent ($)", type: "text" },
       { key: "stage", label: "Stage", type: "stage" },
       { key: "email", label: "Email", type: "multi", placeholder: "email@example.com, email2@example.com" },
       { key: "phone", label: "Phone", type: "multi", placeholder: "555-0100, 555-0101" },
@@ -207,13 +206,14 @@ export const dealTypes: Record<string, DealTypeConfig> = {
       { key: "agent2_id", label: "Agent 2", type: "agent" },
       { key: "agent3_id", label: "Agent 3", type: "agent" },
       { key: "borough", label: "Borough", type: "borough" },
+      { key: "commission", label: "Commission ($)", type: "text" },
       { key: "source", label: "Source", type: "text" },
       { key: "stage", label: "Stage", type: "stage" },
       { key: "email", label: "Email", type: "multi", placeholder: "email@example.com, email2@example.com" },
       { key: "phone", label: "Phone", type: "multi", placeholder: "555-0100, 555-0101" },
       { key: "notes", label: "Notes", type: "textarea" },
     ],
-    tableColumns: ["client", "agent1_id", "agent2_id", "agent3_id", "borough", "stage"],
+    tableColumns: ["client", "agent1_id", "agent2_id", "agent3_id", "borough", "commission", "stage"],
   },
 }
 
@@ -282,20 +282,20 @@ export const WON_REASONS: Record<string, string> = {
 }
 
 export const ALL_COLUMNS: Record<string, string[]> = {
-  rentals: ["address", "agents", "borough", "price", "source", "stage", "pipeline_position", "activity", "days_on_market", "stale", "app_link", "applicant", "email", "phone", "notes", "last_edited_by", "actions"],
-  sellers: ["address", "agents", "borough", "price", "source", "stage", "pipeline_position", "activity", "days_on_market", "stale", "email", "phone", "notes", "last_edited_by", "actions"],
-  buyers: ["client", "agents", "borough", "budget", "source", "stage", "pipeline_position", "activity", "stale", "showsheet_url", "email", "phone", "notes", "last_edited_by", "actions"],
-  applications: ["applicant", "address", "agents", "borough", "source", "stage", "pipeline_position", "activity", "stale", "email", "phone", "move_in_date", "notes", "last_edited_by", "actions"],
-  "tenant-rep": ["client", "agents", "borough", "source", "stage", "pipeline_position", "activity", "stale", "email", "phone", "notes", "last_edited_by", "actions"],
+  rentals: ["address", "agents", "borough", "price", "source", "stage", "pipeline_position", "activity", "days_on_market", "app_link", "applicant", "email", "phone", "notes", "last_edited_by", "actions"],
+  sellers: ["address", "agents", "borough", "price", "source", "stage", "pipeline_position", "activity", "days_on_market", "email", "phone", "notes", "last_edited_by", "actions"],
+  buyers: ["client", "agents", "borough", "budget", "source", "stage", "pipeline_position", "activity", "showsheet_url", "email", "phone", "notes", "last_edited_by", "actions"],
+  applications: ["applicant", "address", "agents", "borough", "source", "stage", "pipeline_position", "activity", "email", "phone", "move_in_date", "notes", "last_edited_by", "actions"],
+  "tenant-rep": ["client", "agents", "borough", "commission", "source", "stage", "pipeline_position", "activity", "email", "phone", "notes", "last_edited_by", "actions"],
   leads: ["contactName", "agents", "borough", "stage", "pipeline_position", "activity", "leadType", "source", "address", "email", "phone", "lastContact", "nextFollowup", "notes", "last_edited_by", "actions"],
 }
 
 export const DEFAULT_COLUMNS: Record<string, string[]> = {
-  rentals: ["address", "agents", "borough", "price", "stage", "stale", "app_link", "applicant", "actions"],
-  sellers: ["address", "agents", "borough", "price", "stage", "stale", "actions"],
-  buyers: ["client", "agents", "borough", "budget", "stage", "stale", "actions"],
-  applications: ["applicant", "address", "agents", "borough", "stage", "stale", "move_in_date", "phone", "actions"],
-  "tenant-rep": ["client", "agents", "borough", "stage", "stale", "actions"],
+  rentals: ["address", "agents", "borough", "price", "stage", "app_link", "applicant", "actions"],
+  sellers: ["address", "agents", "borough", "price", "stage", "actions"],
+  buyers: ["client", "agents", "borough", "budget", "stage", "actions"],
+  applications: ["applicant", "address", "agents", "borough", "stage", "move_in_date", "phone", "actions"],
+  "tenant-rep": ["client", "agents", "borough", "commission", "stage", "actions"],
   leads: ["contactName", "agents", "borough", "stage", "leadType", "source", "phone", "email", "actions"],
 }
 

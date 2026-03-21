@@ -106,6 +106,12 @@ const stagesConfig: ToggleConfig[] = [
     description: "Show an unarchive button on archived deals for all team members",
     defaultValue: true,
   },
+  {
+    key: "door-config-agents-can-delete",
+    label: "Allow agents to delete deals",
+    description: "Let agents delete their own deals, or restrict deletion to admins only",
+    defaultValue: false,
+  },
 ];
 
 const columnsConfig: ToggleConfig[] = [
@@ -133,12 +139,6 @@ const alertsConfig: ToggleConfig[] = [
   {
     key: "door-config-alert-stale-dashboard",
     label: "Surface stale deals on admin dashboard",
-    defaultValue: true,
-  },
-  {
-    key: "door-config-alert-agent-inactive",
-    label: "Alert when an agent hasn't logged in",
-    description: "Threshold configurable below",
     defaultValue: true,
   },
   {
@@ -178,14 +178,6 @@ const thresholdsConfig: ThresholdConfig[] = [
     defaultValue: 7,
     min: 1,
     max: 90,
-  },
-  {
-    key: "door-config-threshold-agent-inactive-days",
-    label: "Agent inactivity threshold",
-    description: "Days without login before an agent is flagged as inactive",
-    defaultValue: 7,
-    min: 1,
-    max: 30,
   },
   {
     key: "door-config-threshold-agent-deal-days",

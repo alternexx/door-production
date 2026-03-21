@@ -32,6 +32,32 @@ interface StageTimelineEntry {
   } | null
 }
 
+interface CommentEntry {
+  id: string
+  content: string
+  authorName: string
+  createdAt: string
+}
+
+interface TaskHistoryEntry {
+  id: string
+  title: string
+  status: string
+  priority: string
+  dueDate: string | null
+  completedAt: string | null
+  createdAt: string
+  creator: { id: string; name: string } | null
+  assignee: { id: string; name: string } | null
+}
+
+interface ShowingHistoryEntry {
+  id: string
+  scheduledAt: string
+  status: "scheduled" | "completed" | "cancelled" | "no_show"
+  agent: { id: string; name: string }
+}
+
 interface HistoryShelfProps {
   open: boolean
   onClose: () => void
@@ -58,15 +84,18 @@ const FIELD_LABELS: Record<string, string> = {
   showsheetUrl: "Showsheet",
 }
 
-type Tab = "all" | "stage" | "price" | "notes" | "agents" | "details"
+type Tab = "all" | "stage" | "price" | "notes" | "agents" | "details" | "showings" | "tasks" | "comments"
 
-const TABS: { key: Tab; label: string }[] = [
+const ALL_TABS: { key: Tab; label: string; hideFor?: string[] }[] = [
   { key: "all", label: "All" },
   { key: "stage", label: "Stage" },
   { key: "price", label: "Price" },
   { key: "notes", label: "Notes" },
   { key: "agents", label: "Agents" },
   { key: "details", label: "Details" },
+  { key: "showings", label: "Showings", hideFor: ["applications"] },
+  { key: "tasks", label: "Tasks" },
+  { key: "comments", label: "Comments" },
 ]
 
 const DETAIL_FIELDS = ["property", "client", "applicant", "email", "phone", "borough", "address", "appLink", "moveInDate", "showsheetUrl"]
@@ -112,6 +141,9 @@ export function HistoryShelf({
 }: HistoryShelfProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [stageTimeline, setStageTimeline] = useState<StageTimelineEntry[]>([])
+  const [showingsHistory, setShowingsHistory] = useState<ShowingHistoryEntry[]>([])
+  const [tasksHistory, setTasksHistory] = useState<TaskHistoryEntry[]>([])
+  const [commentsHistory, setCommentsHistory] = useState<CommentEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<Tab>("all")
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -134,6 +166,24 @@ export function HistoryShelf({
         setStageTimeline([])
       })
       .finally(() => setLoading(false))
+
+    // Fetch showings history (all statuses)
+    fetch(`/api/showings?deal_id=${dealId}`)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setShowingsHistory(data) })
+      .catch(() => setShowingsHistory([]))
+
+    // Fetch tasks history
+    fetch(`/api/tasks?deal_id=${dealId}`)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setTasksHistory(data) })
+      .catch(() => setTasksHistory([]))
+
+    // Fetch comments
+    fetch(`/api/deals/${dealId}/comments`)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setCommentsHistory(data) })
+      .catch(() => setCommentsHistory([]))
   }, [open, dealId])
 
   useEffect(() => {
@@ -172,7 +222,7 @@ export function HistoryShelf({
 
         {/* Tabs */}
         <div className="flex gap-1 mt-3 flex-wrap">
-          {TABS.map(t => (
+          {ALL_TABS.filter(t => !t.hideFor?.includes(_dealType)).map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -188,7 +238,7 @@ export function HistoryShelf({
           ))}
         </div>
 
-        <div className="mt-4">
+        <div className="mt-4 overflow-y-auto max-h-[calc(100vh-180px)] pr-1">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -231,6 +281,94 @@ export function HistoryShelf({
                     </div>
                   ))}
                 </div>
+              </div>
+            )
+          ) : tab === "comments" ? (
+            commentsHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No comments yet</p>
+            ) : (
+              <div className="space-y-2">
+                {commentsHistory.map((c) => (
+                  <div key={c.id} className="rounded-md border px-3 py-2">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-xs font-medium">{c.authorName}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {relativeTime(c.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : tab === "tasks" ? (
+            tasksHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No tasks recorded</p>
+            ) : (
+              <div className="space-y-2">
+                {tasksHistory.map((t) => {
+                  const isDone = t.status === "completed"
+                  const priorityColors: Record<string, string> = {
+                    low: "text-muted-foreground",
+                    medium: "text-blue-500",
+                    high: "text-orange-500",
+                    urgent: "text-red-500",
+                  }
+                  return (
+                    <div key={t.id} className="flex items-start gap-2 px-1 py-1.5">
+                      <div className={cn("mt-0.5 size-2 rounded-full shrink-0", isDone ? "bg-green-500" : "bg-muted-foreground/40")} />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm", isDone && "line-through text-muted-foreground")}>{t.title}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={cn("text-[10px]", priorityColors[t.priority] ?? "text-muted-foreground")}>{t.priority}</span>
+                          {t.dueDate && <span className="text-[10px] text-muted-foreground">· due {new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                          {t.creator && <span className="text-[10px] text-muted-foreground">· {t.creator.name}</span>}
+                        </div>
+                      </div>
+                      <span className={cn("text-[10px] shrink-0", isDone ? "text-green-600 dark:text-green-400" : "text-muted-foreground")}>
+                        {isDone ? "done" : "open"}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          ) : tab === "showings" ? (
+            showingsHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No showings recorded</p>
+            ) : (
+              <div className="space-y-2">
+                {showingsHistory.map((s) => {
+                  const d = new Date(s.scheduledAt)
+                  const month = d.getMonth() + 1
+                  const day = d.getDate()
+                  const hours = d.getHours()
+                  const minutes = d.getMinutes()
+                  const ampm = hours >= 12 ? "pm" : "am"
+                  const h = hours % 12 || 12
+                  const mm = minutes === 0 ? "" : `:${String(minutes).padStart(2, "0")}`
+                  const label = `${s.agent?.name?.split(" ")[0] || "Open house"}: ${month}/${day} ${h}${mm}${ampm}`
+                  const statusColor: Record<string, string> = {
+                    scheduled: "text-blue-500",
+                    completed: "text-green-600 dark:text-green-400",
+                    cancelled: "text-muted-foreground",
+                    no_show: "text-orange-500",
+                  }
+                  const statusLabel: Record<string, string> = {
+                    scheduled: "upcoming",
+                    completed: "done",
+                    cancelled: "archived",
+                    no_show: "no-show",
+                  }
+                  return (
+                    <div key={s.id} className="flex items-center gap-2 px-1 py-1.5">
+                      <span className="text-sm flex-1">{label}</span>
+                      <span className={cn("text-[10px]", statusColor[s.status])}>
+                        {statusLabel[s.status] ?? s.status}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )
           ) : filtered.length === 0 ? (

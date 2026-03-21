@@ -1,8 +1,9 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useEffect, useState } from "react"
 import { StageBadge } from "./stage-badge"
 import { AgentChip } from "./agent-chip"
+import { CheckSquare, Calendar, MessageSquare } from "lucide-react"
 import type { Deal } from "./deal-table"
 
 interface NotesPeekCardProps {
@@ -14,12 +15,34 @@ interface NotesPeekCardProps {
 
 export function NotesPeekCard({ deal, mouseX, mouseY, visible }: NotesPeekCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
+  const [counts, setCounts] = useState<{ openTasks: number; scheduledShowings: number; comments: number } | null>(null)
+  const lastDealId = useRef<string | null>(null)
+
   const position: "left" | "right" =
     typeof window !== "undefined" &&
     mouseX > window.innerWidth - 350 &&
     mouseY > window.innerHeight - 300
       ? "left"
       : "right"
+
+  // Fetch counts when deal changes
+  useEffect(() => {
+    if (!deal?.id || deal.id === lastDealId.current) return
+    lastDealId.current = deal.id
+    setCounts(null)
+
+    Promise.all([
+      fetch(`/api/tasks?deal_id=${deal.id}&open_only=true`).then(r => r.ok ? r.json() : []),
+      fetch(`/api/showings?deal_id=${deal.id}`).then(r => r.ok ? r.json() : []),
+      fetch(`/api/deals/${deal.id}/comments`).then(r => r.ok ? r.json() : []),
+    ]).then(([tasks, showings, comments]) => {
+      setCounts({
+        openTasks: Array.isArray(tasks) ? tasks.length : 0,
+        scheduledShowings: Array.isArray(showings) ? showings.filter((s: { status: string }) => s.status === "scheduled").length : 0,
+        comments: Array.isArray(comments) ? comments.length : 0,
+      })
+    }).catch(() => setCounts({ openTasks: 0, scheduledShowings: 0, comments: 0 }))
+  }, [deal?.id])
 
   if (!visible || !deal || !deal.notes) return null
 
@@ -72,13 +95,32 @@ export function NotesPeekCard({ deal, mouseX, mouseY, visible }: NotesPeekCardPr
       )}
 
       {/* Notes */}
-      <div className="rounded-lg bg-muted/50 p-3">
+      <div className="rounded-lg bg-muted/50 p-3 mb-3">
         <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
           Notes
         </p>
         <p className="text-sm whitespace-pre-wrap leading-relaxed">
           {truncatedNotes}
         </p>
+      </div>
+
+      {/* Indicators */}
+      <div className="flex items-center gap-3">
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <CheckSquare className="size-3" />
+          {counts == null ? "—" : counts.openTasks === 0 ? "0" : <span className="text-foreground font-medium">{counts.openTasks}</span>}
+          <span className="ml-0.5">task{counts?.openTasks === 1 ? "" : "s"}</span>
+        </span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Calendar className="size-3" />
+          {counts == null ? "—" : counts.scheduledShowings === 0 ? "0" : <span className="text-foreground font-medium">{counts.scheduledShowings}</span>}
+          <span className="ml-0.5">showing{counts?.scheduledShowings === 1 ? "" : "s"}</span>
+        </span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <MessageSquare className="size-3" />
+          {counts == null ? "—" : counts.comments === 0 ? "0" : <span className="text-foreground font-medium">{counts.comments}</span>}
+          <span className="ml-0.5">comment{counts?.comments === 1 ? "" : "s"}</span>
+        </span>
       </div>
 
       {/* Last Updated */}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -23,8 +23,8 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AgentChip } from "./agent-chip"
 
-import { ShowingList } from "./showing-list"
-import { TaskList } from "./task-list"
+import { ShowingList, ShowingScheduleShelf, ShowingDetailShelf, type Showing } from "./showing-list"
+import { TaskList, TaskAddShelf, TaskDetailShelf, type Task } from "./task-list"
 import { useIsMobile } from "@/hooks/use-media-query"
 import { getDealTypeConfig, type FieldConfig } from "@/lib/deal-types"
 import { BOROUGHS } from "@/lib/tokens"
@@ -52,6 +52,7 @@ interface DealModalProps {
   onSave: (data: Record<string, unknown>) => Promise<void>
   onDelete?: (id: string) => Promise<void>
   viewOnly?: boolean
+  isAdmin?: boolean
 }
 
 interface BuildingOption {
@@ -74,6 +75,7 @@ export function DealModal({
   initialAgentIds,
   onSave,
   onDelete,
+  isAdmin = false,
 }: DealModalProps) {
   const { currentAgent } = useDealContext()
   const CURRENT_AGENT_ID = "f8cc0af6-7aaa-47ee-90d7-f10ce5c2bb44"
@@ -85,12 +87,37 @@ export function DealModal({
   const [selectedAgentIds, setSelectedAgentIds] = useState<number[]>([])
   const [agentPanelOpen, setAgentPanelOpen] = useState(false)
   const [stageShelfOpen, setStageShelfOpen] = useState(false)
+  const [showingShelfOpen, setShowingShelfOpen] = useState(false)
+  const [stageHistoryShelfOpen, setStageHistoryShelfOpen] = useState(false)
+  const [taskAddShelfOpen, setTaskAddShelfOpen] = useState(false)
+  const [taskAddTitle, setTaskAddTitle] = useState("")
+  const [taskAddDescription, setTaskAddDescription] = useState("")
+  const [taskAddDueDate, setTaskAddDueDate] = useState("")
+  const [taskAddPriority, setTaskAddPriority] = useState("medium")
+  const [taskAddSaving, setTaskAddSaving] = useState(false)
+  const [taskRefreshKey, setTaskRefreshKey] = useState(0)
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [taskCompleting, setTaskCompleting] = useState(false)
+  const [taskArchiving, setTaskArchiving] = useState(false)
+  const [showingScheduleDate, setShowingScheduleDate] = useState("")
+  const [showingType, setShowingType] = useState<"private" | "open_house">("private")
+
+  const [showingSaving, setShowingSaving] = useState(false)
+  const [showingAtMax, setShowingAtMax] = useState(false)
+  const [showingRefreshKey, setShowingRefreshKey] = useState(0)
+  const [selectedShowing, setSelectedShowing] = useState<Showing | null>(null)
+  const [showingArchiving, setShowingArchiving] = useState(false)
   const [agentSearch, setAgentSearch] = useState("")
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [discardConfirm, setDiscardConfirm] = useState(false)
+  const [autoSaved, setAutoSaved] = useState(false)
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoSaveEnabled = isEdit && (typeof window !== "undefined"
+    ? localStorage.getItem("door-autosave") !== "false"
+    : true)
   const [initialForm, setInitialForm] = useState<Record<string, unknown>>({})
   const [initialAgents, setInitialAgents] = useState<number[]>([])
   const [buildings, setBuildings] = useState<BuildingOption[]>([])
@@ -113,12 +140,45 @@ export function DealModal({
     stage?: { color?: string | null } | null
     changedByUser?: { name?: string | null } | null
   }>>([])
+  const [dealHistory, setDealHistory] = useState<Array<{
+    id: string; field: string; oldValue: string | null; newValue: string | null; changedByName: string | null; changedAt: string;
+  }>>([])
+  const [fullHistoryShelfOpen, setFullHistoryShelfOpen] = useState(false)
+  const [fullHistoryTab, setFullHistoryTab] = useState("all")
+  const [fullHistoryShowings, setFullHistoryShowings] = useState<Array<{id:string;scheduledAt:string;status:string;showingType:string;agent:{name:string}}>>([])
+  const [fullHistoryTasks, setFullHistoryTasks] = useState<Array<{id:string;title:string;status:string;priority:string;dueDate:string|null;completedAt:string|null;createdAt:string;creator:{name:string}|null}>>([])
+  const [fullHistoryLoading, setFullHistoryLoading] = useState(false)
   const [comments, setComments] = useState<Array<{
     id: string; content: string; authorName: string; createdAt: string;
   }>>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [commentText, setCommentText] = useState("")
   const [commentSaving, setCommentSaving] = useState(false)
+  const [commentsShelfOpen, setCommentsShelfOpen] = useState(false)
+  const [lastSeenCommentTs, setLastSeenCommentTs] = useState<string | null>(null)
+
+  const closeAllShelves = () => {
+    setAgentPanelOpen(false)
+    setStageShelfOpen(false)
+    setShowingShelfOpen(false)
+    setSelectedShowing(null)
+    setStageHistoryShelfOpen(false)
+    setTaskAddShelfOpen(false)
+    setSelectedTask(null)
+    setCommentsShelfOpen(false)
+    setFullHistoryShelfOpen(false)
+  }
+
+  const openCommentsShelf = () => {
+    closeAllShelves()
+    setCommentsShelfOpen(true)
+    // Mark all as seen
+    if (deal?.id && comments.length > 0) {
+      const latest = comments[0].createdAt
+      localStorage.setItem(`door-comments-seen-${deal.id}`, latest)
+      setLastSeenCommentTs(latest)
+    }
+  }
 
   // Initialize form
   useEffect(() => {
@@ -129,7 +189,7 @@ export function DealModal({
       config?.fields.forEach((field) => {
         if (field.type === "agent") return
         const key = field.key
-        // Map from deal object — prefer rawData for deal-type-specific fields
+        // Map from deal object - prefer rawData for deal-type-specific fields
         if (key === "property" || key === "client" || key === "applicant") {
           initial[key] = raw[key] ?? deal.primaryField ?? ""
         } else if (key === "budget") {
@@ -177,8 +237,7 @@ export function DealModal({
     setDeleteConfirm(false)
     setDiscardConfirm(false)
     setIsDirty(false)
-    setAgentPanelOpen(false)
-    setStageShelfOpen(false)
+    closeAllShelves()
     setAgentSearch("")
     setShowAddBuildingPrompt(false)
     setPromptAddress("")
@@ -225,7 +284,7 @@ export function DealModal({
     return address.trim().toLowerCase().replace(/\s+/g, " ")
   }, [])
 
-  // Strip borough names, "New York", state, and zip from address — keep neighborhood
+  // Strip borough names, "New York", state, and zip from address - keep neighborhood
   const stripBoroughFromAddress = useCallback((address: string): string => {
     const patterns = [
       // Borough/city + optional state + optional zip anywhere trailing
@@ -267,12 +326,33 @@ export function DealModal({
   }, [])
 
   const handleClose = useCallback(() => {
-    if (isDirty && isEdit) {
+    if (isDirty && isEdit && !autoSaveEnabled) {
       setDiscardConfirm(true)
     } else {
       onClose()
     }
-  }, [isDirty, isEdit, onClose])
+  }, [isDirty, isEdit, onClose, autoSaveEnabled])
+
+  // Autosave: debounce 1.5s after dirty
+  useEffect(() => {
+    if (!autoSaveEnabled || !isDirty) return
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (!isDirty) return
+      setSaving(true)
+      try {
+        const payload: Record<string, unknown> = { ...form, agent_ids: selectedAgentIds }
+        if (payload.source === "") payload.source = null
+        await onSave(payload)
+        setIsDirty(false)
+        setAutoSaved(true)
+        setTimeout(() => setAutoSaved(false), 2000)
+      } catch { /* silent */ } finally {
+        setSaving(false)
+      }
+    }, 1500)
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }
+  }, [isDirty, form, selectedAgentIds, autoSaveEnabled])
 
   const handleAddressCommitted = useCallback(
     (address: string) => {
@@ -381,15 +461,20 @@ export function DealModal({
       .then((r) => r.json())
       .then((data) => {
         setStageTimeline(Array.isArray(data?.stageTimeline) ? data.stageTimeline : [])
+        setDealHistory(Array.isArray(data?.history) ? data.history : [])
       })
-      .catch(() => setStageTimeline([]))
+      .catch(() => { setStageTimeline([]); setDealHistory([]) })
   }, [open, deal?.id])
 
   useEffect(() => {
     if (!open || !deal?.id) {
       setComments([])
+      setCommentsShelfOpen(false)
       return
     }
+    // Load last-seen timestamp for unread tracking
+    const stored = typeof window !== "undefined" ? localStorage.getItem(`door-comments-seen-${deal.id}`) : null
+    setLastSeenCommentTs(stored)
 
     setCommentsLoading(true)
     fetch(`/api/deals/${deal.id}/comments`)
@@ -614,7 +699,7 @@ export function DealModal({
             }}
             placeholder={field.placeholder || "Start typing an address…"}
           />
-          {/* "Is this?" suggestion — disabled, back burner */}
+          {/* "Is this?" suggestion - disabled, back burner */}
           {canShowBuildingPrompt && (
             <div className="mt-1.5 flex items-center gap-1.5">
               {buildingCreateOpen ? (
@@ -662,7 +747,7 @@ export function DealModal({
       <label className="text-xs font-medium text-muted-foreground">Stage</label>
       <button
         type="button"
-        onClick={() => { setStageShelfOpen(v => !v); setAgentPanelOpen(false); }}
+        onClick={() => { const next = !stageShelfOpen; closeAllShelves(); setStageShelfOpen(next); }}
         className="w-full h-9 flex items-center gap-2 px-3 rounded-md border border-input bg-background text-sm hover:bg-accent/50 transition-colors text-left"
       >
         {form.stage ? (
@@ -713,7 +798,7 @@ export function DealModal({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => { setAgentPanelOpen(!agentPanelOpen); setStageShelfOpen(false); }}
+          onClick={() => { const next = !agentPanelOpen; closeAllShelves(); setAgentPanelOpen(next); }}
           className="text-xs"
         >
           <Users className="h-3 w-3 mr-1" />
@@ -758,112 +843,174 @@ export function DealModal({
           .map(renderField)}
         {isMobile ? renderStageMobile() : renderStage()}
       </div>
-      {/* Lease dates hidden — to be integrated with archive flow later */}
+      {/* Lease dates hidden - to be integrated with archive flow later */}
       <Separator />
       {renderAgents()}
       {isEdit && deal?.id ? (
         <>
           <Separator />
           <Tabs defaultValue="history" className="w-full">
-            <TabsList className="tab-triggers grid w-full grid-cols-4 pointer-events-auto">
+            <TabsList className={`tab-triggers grid w-full pointer-events-auto ${dealType === "applications" ? "grid-cols-3" : "grid-cols-4"}`}>
               <TabsTrigger value="history">History</TabsTrigger>
-              <TabsTrigger value="showings">Showings</TabsTrigger>
+              {dealType !== "applications" && <TabsTrigger value="showings">Showings</TabsTrigger>}
               <TabsTrigger value="tasks">Tasks</TabsTrigger>
               <TabsTrigger value="comments">Comments</TabsTrigger>
             </TabsList>
             <TabsContent value="history" className="mt-3">
-              {stageTimeline.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  No stage changes recorded
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="relative">
-                    <div className="absolute left-3 top-2 bottom-2 w-px bg-border" />
-                    <div className="space-y-2">
-                      {stageTimeline.slice(0, 2).map((entry) => (
-                        <div key={entry.id} className="flex items-start gap-3 pl-1">
-                          <div
-                            className="h-2.5 w-2.5 rounded-full shrink-0 mt-1.5 relative z-10"
-                            style={{ backgroundColor: entry.stage?.color || "#6b7280" }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="mb-1">
-                              <span
-                                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border"
-                                style={{
-                                  color: entry.stage?.color || "#6b7280",
-                                  borderColor: `${entry.stage?.color || "#6b7280"}40`,
-                                  backgroundColor: `${entry.stage?.color || "#6b7280"}1A`,
-                                }}
-                              >
-                                {entry.stageName}
-                              </span>
-                            </div>
-                            <div className="text-xs font-medium">
-                              Time in stage: {formatStageDuration(entry.durationSeconds, entry.enteredAt)}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5">
-                              {entry.changedByUser?.name || "System"} · {new Date(entry.enteredAt).toLocaleString()}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+              <div className="space-y-2">
+                {(() => {
+                  // Show most recent change from dealHistory
+                  const recent = dealHistory[0]
+                  if (!recent) return <p className="text-sm text-muted-foreground py-3 text-center">No history yet</p>
+                  const FIELD_LABELS: Record<string, string> = { stage: "Stage", price: "Price", budget: "Price", notes: "Notes", agents: "Agents", property: "Name", client: "Name", applicant: "Name", email: "Email", phone: "Phone", borough: "Borough", address: "Address", showing: "Showing", task: "Task" }
+                  return (
+                    <div className="flex items-start gap-2.5 px-1">
+                      <div className="h-2 w-2 rounded-full bg-muted-foreground/40 shrink-0 mt-1.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground mb-0.5">{FIELD_LABELS[recent.field] || recent.field} changed</p>
+                        <p className="text-sm truncate">
+                          {recent.oldValue ? <><span className="text-muted-foreground">{recent.oldValue}</span><span className="mx-1 text-muted-foreground">→</span></> : null}
+                          <span className="font-medium">{recent.newValue || "—"}</span>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {recent.changedByName || "System"} · {formatRelativeTime(recent.changedAt)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  {stageTimeline.length > 2 && onOpenHistoryShelf && (
-                    <button
-                      type="button"
-                      onClick={() => { onClose(); setTimeout(onOpenHistoryShelf, 100); }}
-                      className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                    >
-                      Stage history ({stageTimeline.length} entries) →
-                    </button>
-                  )}
-                </div>
-              )}
+                  )
+                })()}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    closeAllShelves(); setFullHistoryShelfOpen(true); setFullHistoryTab("all");
+                    if (!deal?.id) return;
+                    setFullHistoryLoading(true);
+                    try {
+                      const [s, t] = await Promise.all([
+                        fetch(`/api/showings?deal_id=${deal.id}`).then(r => r.ok ? r.json() : []),
+                        fetch(`/api/tasks?deal_id=${deal.id}`).then(r => r.ok ? r.json() : []),
+                      ]);
+                      setFullHistoryShowings(Array.isArray(s) ? s : []);
+                      setFullHistoryTasks(Array.isArray(t) ? t : []);
+                    } finally { setFullHistoryLoading(false); }
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                >
+                  View full history →
+                </button>
+              </div>
             </TabsContent>
-            <TabsContent value="showings" className="mt-3">
-              <ShowingList dealId={deal.id} />
-            </TabsContent>
+            {dealType !== "applications" && <TabsContent value="showings" className="mt-3">
+              <ShowingList
+                dealId={deal.id}
+                shelfOpen={showingShelfOpen}
+                onShelfOpenChange={(v) => {
+                  if (v) { closeAllShelves(); setShowingShelfOpen(true) } else { setShowingShelfOpen(false) }
+                }}
+                onShowingSelect={(s) => {
+                  if (s) { closeAllShelves(); setSelectedShowing(s) } else { setSelectedShowing(null) }
+                }}
+                onAtMaxChange={setShowingAtMax}
+                refreshKey={showingRefreshKey}
+              />
+            </TabsContent>}
             <TabsContent value="tasks" className="mt-3">
-              <TaskList dealId={deal.id} />
+              <TaskList
+                dealId={deal.id}
+                addShelfOpen={taskAddShelfOpen}
+                onAddShelfOpenChange={(v) => {
+                  if (v) { closeAllShelves(); setTaskAddShelfOpen(true) } else { setTaskAddShelfOpen(false) }
+                }}
+                onTaskSelect={(t) => {
+                  setSelectedTask(t)
+                  if (t) { closeAllShelves(); setSelectedTask(t) } else { setSelectedTask(null) }
+                }}
+                addTitle={taskAddTitle}
+                setAddTitle={setTaskAddTitle}
+                addDescription={taskAddDescription}
+                setAddDescription={setTaskAddDescription}
+                addDueDate={taskAddDueDate}
+                setAddDueDate={setTaskAddDueDate}
+                addPriority={taskAddPriority}
+                setAddPriority={setTaskAddPriority}
+                addSaving={taskAddSaving}
+                onAddTask={async () => {
+                  if (!taskAddTitle.trim()) return
+                  setTaskAddSaving(true)
+                  try {
+                    const res = await fetch("/api/tasks", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        dealId: deal.id,
+                        title: taskAddTitle.trim(),
+                        description: taskAddDescription.trim() || undefined,
+                        dueDate: taskAddDueDate || undefined,
+                        priority: taskAddPriority,
+                        status: "todo",
+                      }),
+                    })
+                    if (res.ok) {
+                      setTaskAddTitle("")
+                      setTaskAddDescription("")
+                      setTaskAddDueDate("")
+                      setTaskAddPriority("medium")
+                      setTaskAddShelfOpen(false)
+                      setTaskRefreshKey(k => k + 1)
+                    }
+                  } finally { setTaskAddSaving(false) }
+                }}
+                refreshKey={taskRefreshKey}
+              />
             </TabsContent>
             <TabsContent value="comments" className="mt-3">
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {commentsLoading ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    Loading comments...
-                  </p>
+                  <p className="text-sm text-muted-foreground py-3 text-center">Loading…</p>
                 ) : comments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    No comments yet
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {comments.map((c) => (
-                      <div key={c.id} className="rounded-md border px-3 py-2">
+                  <p className="text-sm text-muted-foreground py-3 text-center">No comments yet</p>
+                ) : (() => {
+                  const latest = comments[0]
+                  const unread = lastSeenCommentTs
+                    ? comments.filter(c => new Date(c.createdAt) > new Date(lastSeenCommentTs)).length
+                    : 0
+                  return (
+                    <>
+                      {/* Most recent comment */}
+                      <div className="px-1 py-1">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-xs font-medium">{c.authorName}</span>
-                          <span className="text-[11px] text-muted-foreground">{formatRelativeTime(c.createdAt)}</span>
+                          <span className="text-xs font-medium">{latest.authorName}</span>
+                          <span className="text-[11px] text-muted-foreground">{formatRelativeTime(latest.createdAt)}</span>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                        <p className="text-sm whitespace-pre-wrap line-clamp-3">{latest.content}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex items-end gap-2">
+                      {/* Show more button */}
+                      {comments.length > 1 && (
+                        <button
+                          onClick={openCommentsShelf}
+                          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md hover:bg-muted/50 transition-colors text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <span>Show all {comments.length} comments</span>
+                          {unread > 0 && (
+                            <span className="bg-[var(--fm-amber)] text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+                              {unread} new
+                            </span>
+                          )}
+                        </button>
+                      )}
+                    </>
+                  )
+                })()}
+                {/* Input */}
+                <div className="flex items-end gap-2 pt-1">
                   <textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Add a comment..."
+                    placeholder="Add a comment…"
                     rows={2}
-                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault()
-                        handlePostComment()
-                      }
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handlePostComment() }
                     }}
                   />
                   <button
@@ -872,11 +1019,7 @@ export function DealModal({
                     disabled={commentSaving || !commentText.trim()}
                     className="h-9 w-9 rounded-md flex items-center justify-center bg-[var(--fm-amber)] text-white hover:bg-[var(--fm-amber)]/90 transition-colors disabled:opacity-40"
                   >
-                    {commentSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <SendHorizonal className="h-4 w-4" />
-                    )}
+                    {commentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizonal className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
@@ -887,10 +1030,15 @@ export function DealModal({
     </div>
   )
 
+  const agentsCanDelete = typeof window !== "undefined"
+    ? localStorage.getItem("door-config-agents-can-delete") === "true"
+    : false
+  const canDelete = isEdit && onDelete && (isAdmin || agentsCanDelete)
+
   const footer = (
     <div className="flex items-center justify-between gap-2">
       <div>
-        {isEdit && onDelete && (
+        {canDelete && (
           deleteConfirm ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-destructive">Delete this deal?</span>
@@ -922,19 +1070,24 @@ export function DealModal({
           )
         )}
       </div>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={handleClose}>
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-[var(--fm-amber)] hover:bg-[var(--fm-amber)]/90 text-white"
-        >
-          {saving && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
-          {isEdit ? "Save Changes" : "Create Deal"}
-        </Button>
+      <div className="flex items-center gap-2">
+        {/* Autosave indicator */}
+        {autoSaveEnabled && isEdit && (
+          <span className={`text-xs transition-opacity duration-500 ${autoSaved ? "text-green-600 dark:text-green-400 opacity-100" : saving ? "text-muted-foreground opacity-100" : "opacity-0"}`}>
+            {saving ? "Saving…" : "Saved"}
+          </span>
+        )}
+        {(!autoSaveEnabled || !isEdit) && (
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-[var(--fm-amber)] hover:bg-[var(--fm-amber)]/90 text-white"
+          >
+            {saving && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
+            {isEdit ? "Save Changes" : "Create Deal"}
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -971,7 +1124,7 @@ export function DealModal({
             {!viewOnly && <DialogFooter>{footer}</DialogFooter>}
           </div>
 
-          {/* Agent shelf — slides out from the right edge of the modal */}
+          {/* Agent shelf - slides out from the right edge of the modal */}
           <div
             style={{
               position: "absolute",
@@ -1035,7 +1188,7 @@ export function DealModal({
             </div>
           </div>
 
-          {/* Stage shelf — slides out from the right edge of the modal */}
+          {/* Stage shelf - slides out from the right edge of the modal */}
           <div
             onKeyDown={e => { if (e.key === "Escape") setStageShelfOpen(false); }}
             style={{
@@ -1084,6 +1237,387 @@ export function DealModal({
               )}
             </div>
           </div>
+
+          {/* Showing schedule shelf - slides out from the right edge of the modal */}
+          <ShowingScheduleShelf
+            open={!viewOnly && showingShelfOpen}
+            scheduleDate={showingScheduleDate}
+            setScheduleDate={setShowingScheduleDate}
+            showingType={showingType}
+            setShowingType={setShowingType}
+            saving={showingSaving}
+            atMax={showingAtMax}
+            onSchedule={async () => {
+              if (!showingScheduleDate || showingAtMax) return
+              setShowingSaving(true)
+              try {
+                const res = await fetch("/api/showings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    dealId: deal!.id,
+                    scheduledAt: showingScheduleDate,
+                    showingType,
+                  }),
+                })
+                if (res.ok) {
+                  setShowingScheduleDate("")
+                  setShowingType("private")
+                  setShowingShelfOpen(false)
+                  setShowingRefreshKey((k) => k + 1)
+                }
+              } finally {
+                setShowingSaving(false)
+              }
+            }}
+            onClose={() => setShowingShelfOpen(false)}
+          />
+
+          {/* Showing detail shelf */}
+          <ShowingDetailShelf
+            showing={selectedShowing}
+            open={!viewOnly && !!selectedShowing}
+            archiving={showingArchiving}
+            onArchive={async () => {
+              if (!selectedShowing) return
+              setShowingArchiving(true)
+              try {
+                await fetch(`/api/showings/${selectedShowing.id}/cancel`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ reason: "archived" }),
+                })
+                setSelectedShowing(null)
+                setShowingRefreshKey(k => k + 1)
+              } finally { setShowingArchiving(false) }
+            }}
+            onClose={() => setSelectedShowing(null)}
+          />
+
+          {/* Comments shelf */}
+          <div style={{
+            position: "absolute", top: 0, left: "100%",
+            width: commentsShelfOpen ? 280 : 0, height: "100%",
+            borderLeft: commentsShelfOpen ? "1px solid var(--border)" : "none",
+            borderRadius: "0 12px 12px 0",
+            background: "var(--background)",
+            boxShadow: commentsShelfOpen ? "4px 0 16px rgba(0,0,0,0.08)" : "none",
+            transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+            overflow: "hidden", display: "flex", flexDirection: "column", zIndex: 10,
+          }}>
+            <div style={{ width: 280, display: "flex", flexDirection: "column", height: "100%" }}>
+              {commentsShelfOpen && (
+                <>
+                  <div className="flex items-center justify-between px-3.5 py-3 border-b shrink-0">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Comments</span>
+                    <button onClick={() => setCommentsShelfOpen(false)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-2">
+                    {comments.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">No comments yet</p>
+                    ) : (
+                      comments.map((c) => {
+                        const isUnread = lastSeenCommentTs ? new Date(c.createdAt) > new Date(lastSeenCommentTs) : false
+                        return (
+                          <div key={c.id} className={`px-1 py-1.5 ${isUnread ? "bg-[var(--fm-amber)]/5 rounded-md" : ""}`}>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-xs font-medium">{c.authorName}</span>
+                              <span className="text-[10px] text-muted-foreground">{formatRelativeTime(c.createdAt)}</span>
+                              {isUnread && <span className="ml-auto text-[9px] text-[var(--fm-amber)] font-semibold">NEW</span>}
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                  {/* Input in shelf too */}
+                  <div className="flex items-end gap-2 px-3.5 py-3 border-t shrink-0">
+                    <textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Add a comment…"
+                      rows={2}
+                      className="flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handlePostComment() }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handlePostComment()
+                        // mark seen after posting
+                        if (deal?.id) {
+                          const ts = new Date().toISOString()
+                          localStorage.setItem(`door-comments-seen-${deal.id}`, ts)
+                          setLastSeenCommentTs(ts)
+                        }
+                      }}
+                      disabled={commentSaving || !commentText.trim()}
+                      className="h-8 w-8 rounded-md flex items-center justify-center bg-[var(--fm-amber)] text-white hover:bg-[var(--fm-amber)]/90 disabled:opacity-40"
+                    >
+                      {commentSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendHorizonal className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Task detail shelf */}
+          <TaskDetailShelf
+            task={selectedTask}
+            open={!viewOnly && !!selectedTask}
+            completing={taskCompleting}
+            archiving={taskArchiving}
+            onComplete={async () => {
+              if (!selectedTask) return
+              setTaskCompleting(true)
+              try {
+                await fetch(`/api/tasks/${selectedTask.id}/complete`, { method: "POST" })
+                setSelectedTask(null)
+                setTaskRefreshKey(k => k + 1)
+              } finally { setTaskCompleting(false) }
+            }}
+            onArchive={async () => {
+              if (!selectedTask) return
+              setTaskArchiving(true)
+              try {
+                await fetch(`/api/tasks/${selectedTask.id}/archive`, { method: "POST" })
+                setSelectedTask(null)
+                setTaskRefreshKey(k => k + 1)
+              } finally { setTaskArchiving(false) }
+            }}
+            onClose={() => setSelectedTask(null)}
+          />
+
+          {/* Task add shelf */}
+          <TaskAddShelf
+            open={!viewOnly && taskAddShelfOpen}
+            title={taskAddTitle}
+            setTitle={setTaskAddTitle}
+            description={taskAddDescription}
+            setDescription={setTaskAddDescription}
+            dueDate={taskAddDueDate}
+            setDueDate={setTaskAddDueDate}
+            priority={taskAddPriority}
+            setPriority={setTaskAddPriority}
+            saving={taskAddSaving}
+            onAdd={async () => {
+              if (!taskAddTitle.trim()) return
+              setTaskAddSaving(true)
+              try {
+                const res = await fetch("/api/tasks", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    dealId: deal!.id,
+                    title: taskAddTitle.trim(),
+                    description: taskAddDescription.trim() || undefined,
+                    dueDate: taskAddDueDate || undefined,
+                    priority: taskAddPriority,
+                    status: "todo",
+                  }),
+                })
+                if (res.ok) {
+                  setTaskAddTitle("")
+                  setTaskAddDescription("")
+                  setTaskAddDueDate("")
+                  setTaskAddPriority("medium")
+                  setTaskAddShelfOpen(false)
+                  setTaskRefreshKey(k => k + 1)
+                }
+              } finally { setTaskAddSaving(false) }
+            }}
+            onClose={() => setTaskAddShelfOpen(false)}
+          />
+
+          {/* Stage history shelf */}
+          <div
+            style={{
+              position: "absolute", top: 0, left: "100%",
+              width: stageHistoryShelfOpen ? 260 : 0, height: "100%",
+              borderLeft: stageHistoryShelfOpen ? "1px solid var(--border)" : "none",
+              borderRadius: "0 12px 12px 0",
+              background: "var(--background)",
+              boxShadow: stageHistoryShelfOpen ? "4px 0 16px rgba(0,0,0,0.08)" : "none",
+              transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+              overflow: "hidden", display: "flex", flexDirection: "column", zIndex: 10,
+            }}
+          >
+            <div style={{ width: 260, display: "flex", flexDirection: "column", height: "100%" }}>
+              {stageHistoryShelfOpen && (
+                <>
+                  <div className="flex items-center justify-between px-3.5 py-3 border-b shrink-0">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stage History</span>
+                    <button onClick={() => setStageHistoryShelfOpen(false)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-3.5 py-3">
+                    {stageTimeline.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">No stage history</p>
+                    ) : (
+                      <div className="relative">
+                        <div className="absolute left-2 top-1 bottom-1 w-px bg-border" />
+                        <div className="space-y-4">
+                          {stageTimeline.map((entry) => (
+                            <div key={entry.id} className="flex items-start gap-3 pl-0.5">
+                              <div
+                                className="h-2.5 w-2.5 rounded-full shrink-0 mt-1 relative z-10"
+                                style={{ backgroundColor: entry.stage?.color || "#6b7280" }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <span
+                                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border mb-1"
+                                  style={{
+                                    color: entry.stage?.color || "#6b7280",
+                                    borderColor: `${entry.stage?.color || "#6b7280"}40`,
+                                    backgroundColor: `${entry.stage?.color || "#6b7280"}1A`,
+                                  }}
+                                >
+                                  {entry.stageName}
+                                </span>
+                                <div className="text-[11px] font-medium">
+                                  {formatStageDuration(entry.durationSeconds, entry.enteredAt)}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  {entry.changedByUser?.name || "System"} · {new Date(entry.enteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          {/* Full history shelf */}
+          {(() => {
+            const FIELD_LABELS: Record<string, string> = { stage: "Stage", price: "Price", budget: "Price", notes: "Notes", agents: "Agents", property: "Name", client: "Name", applicant: "Name", email: "Email", phone: "Phone", borough: "Borough", address: "Address", showing: "Showing", task: "Task" }
+            const DETAIL_FIELDS = ["property", "client", "applicant", "email", "phone", "borough", "address"]
+            const TABS = [
+              { key: "all", label: "All" },
+              { key: "stage", label: "Stage" },
+              { key: "price", label: "Price" },
+              { key: "notes", label: "Notes" },
+              { key: "agents", label: "Agents" },
+              { key: "details", label: "Details" },
+              ...(dealType !== "applications" ? [{ key: "showings", label: "Showings" }] : []),
+              { key: "tasks", label: "Tasks" },
+              { key: "comments", label: "Comments" },
+            ]
+            const filtered = fullHistoryTab === "all" ? dealHistory
+              : fullHistoryTab === "stage" ? []  // stage uses timeline below
+              : fullHistoryTab === "price" ? dealHistory.filter(e => e.field === "price" || e.field === "budget")
+              : fullHistoryTab === "notes" ? dealHistory.filter(e => e.field === "notes")
+              : fullHistoryTab === "agents" ? dealHistory.filter(e => e.field === "agents")
+              : fullHistoryTab === "details" ? dealHistory.filter(e => DETAIL_FIELDS.includes(e.field))
+              : dealHistory
+            return (
+              <div style={{
+                position: "absolute", top: 0, left: "100%",
+                width: fullHistoryShelfOpen ? 280 : 0, height: "100%",
+                borderLeft: fullHistoryShelfOpen ? "1px solid var(--border)" : "none",
+                borderRadius: "0 12px 12px 0",
+                background: "var(--background)",
+                boxShadow: fullHistoryShelfOpen ? "4px 0 16px rgba(0,0,0,0.08)" : "none",
+                transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+                overflow: "hidden", display: "flex", flexDirection: "column", zIndex: 10,
+              }}>
+                <div style={{ width: 280, display: "flex", flexDirection: "column", height: "100%" }}>
+                  {fullHistoryShelfOpen && (
+                    <>
+                      <div className="flex items-center justify-between px-3.5 py-3 border-b shrink-0">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">History</span>
+                        <button onClick={() => setFullHistoryShelfOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+                      </div>
+                      {/* Tab bar */}
+                      <div className="flex gap-1 px-2 pt-2 pb-1 flex-wrap shrink-0">
+                        {TABS.map(t => (
+                          <button key={t.key} onClick={() => setFullHistoryTab(t.key)}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${fullHistoryTab === t.key ? "bg-foreground text-background" : "text-muted-foreground hover:bg-accent"}`}>
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex-1 overflow-y-auto px-3 py-2">
+                        {fullHistoryTab === "stage" ? (
+                          stageTimeline.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-4">No stage history</p>
+                          ) : (
+                            <div className="relative">
+                              <div className="absolute left-2 top-1 bottom-1 w-px bg-border" />
+                              <div className="space-y-4">
+                                {stageTimeline.map(entry => (
+                                  <div key={entry.id} className="flex items-start gap-3 pl-0.5">
+                                    <div className="h-2.5 w-2.5 rounded-full shrink-0 mt-1 relative z-10" style={{ backgroundColor: entry.stage?.color || "#6b7280" }} />
+                                    <div className="flex-1 min-w-0">
+                                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border mb-1"
+                                        style={{ color: entry.stage?.color || "#6b7280", borderColor: `${entry.stage?.color || "#6b7280"}40`, backgroundColor: `${entry.stage?.color || "#6b7280"}1A` }}>
+                                        {entry.stageName}
+                                      </span>
+                                      <div className="text-[11px] font-medium">{formatStageDuration(entry.durationSeconds, entry.enteredAt)}</div>
+                                      <div className="text-[10px] text-muted-foreground mt-0.5">{entry.changedByUser?.name || "System"} · {new Date(entry.enteredAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        ) : fullHistoryTab === "showings" ? (
+                          fullHistoryLoading ? <div className="py-4 flex justify-center"><div className="size-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" /></div>
+                          : fullHistoryShowings.length === 0 ? <p className="text-xs text-muted-foreground text-center py-4">No showings</p>
+                          : <div className="space-y-1.5">{fullHistoryShowings.map(s => {
+                            const d = new Date(s.scheduledAt); const m = d.getMonth()+1; const day = d.getDate(); const h = d.getHours(); const min = d.getMinutes(); const ampm = h>=12?"pm":"am"; const hr = h%12||12; const mm = min===0?"":`:`+String(min).padStart(2,"0");
+                            return <div key={s.id} className="flex items-center gap-2 py-1 border-b border-border/30 last:border-0"><div className={`h-2 w-2 rounded-full shrink-0 ${s.status==="scheduled"?"bg-blue-500":s.status==="completed"?"bg-green-500":"bg-muted-foreground/40"}`} /><span className="flex-1 text-xs">{s.showingType==="open_house"?"Open house":"Private"}: {m}/{day} {hr}{mm}{ampm}</span><span className="text-[10px] text-muted-foreground">{s.status==="scheduled"?"upcoming":s.status==="completed"?"done":"archived"}</span></div>
+                          })}</div>
+                        ) : fullHistoryTab === "tasks" ? (
+                          fullHistoryLoading ? <div className="py-4 flex justify-center"><div className="size-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" /></div>
+                          : fullHistoryTasks.length === 0 ? <p className="text-xs text-muted-foreground text-center py-4">No tasks</p>
+                          : <div className="space-y-1.5">{fullHistoryTasks.map(t => {
+                            const isDone = t.status === "completed";
+                            const pColors: Record<string,string> = {low:"text-muted-foreground",medium:"text-blue-500",high:"text-orange-500",urgent:"text-red-500"};
+                            return <div key={t.id} className="flex items-start gap-2 py-1 border-b border-border/30 last:border-0"><div className={`h-2 w-2 rounded-full shrink-0 mt-1 ${isDone?"bg-green-500":"bg-muted-foreground/40"}`} /><div className="flex-1 min-w-0"><p className={`text-xs ${isDone?"line-through text-muted-foreground":""}`}>{t.title}</p><p className="text-[10px] text-muted-foreground">{t.creator?.name||"Unknown"} · <span className={pColors[t.priority]}>{t.priority}</span>{t.dueDate?` · due ${new Date(t.dueDate).toLocaleDateString("en-US",{month:"short",day:"numeric"})}`:""}</p></div><span className={`text-[10px] shrink-0 ${isDone?"text-green-600":"text-muted-foreground"}`}>{isDone?"done":"open"}</span></div>
+                          })}</div>
+                        ) : fullHistoryTab === "comments" ? (
+                          comments.length === 0 ? <p className="text-xs text-muted-foreground text-center py-4">No comments</p>
+                          : <div className="space-y-2">{comments.map(c => <div key={c.id} className="py-1 border-b border-border/30 last:border-0"><div className="flex items-center gap-1.5 mb-0.5"><span className="text-xs font-medium">{c.authorName}</span><span className="text-[10px] text-muted-foreground">{formatRelativeTime(c.createdAt)}</span></div><p className="text-xs text-muted-foreground">{c.content}</p></div>)}</div>
+                        ) : filtered.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-4">No changes recorded</p>
+                        ) : (
+                          <div className="relative">
+                            <div className="absolute left-2 top-1 bottom-1 w-px bg-border" />
+                            <div className="space-y-4">
+                              {filtered.map(entry => (
+                                <div key={entry.id} className="flex items-start gap-3 pl-0.5">
+                                  <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40 shrink-0 mt-1 relative z-10" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] text-muted-foreground mb-0.5">{FIELD_LABELS[entry.field] || entry.field} changed</p>
+                                    <p className="text-sm">
+                                      {entry.oldValue ? <><span className="text-muted-foreground text-xs">{entry.oldValue}</span><span className="mx-1 text-muted-foreground">→</span></> : null}
+                                      <span className="font-medium text-xs">{entry.newValue || "—"}</span>
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">{entry.changedByName || "System"} · {formatRelativeTime(entry.changedAt)}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </DialogContent>
     </Dialog>

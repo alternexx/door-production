@@ -55,11 +55,11 @@
 
 /* Light mode (default when no .dark class) */
 :root {
-  --background: #fafafa;
+  --background: #f5f4f1;
   --foreground: #1a1a18;
-  --card: #ffffff;
+  --card: #f0ede8;
   --card-foreground: #1a1a18;
-  --popover: #ffffff;
+  --popover: #f0ede8;
   --popover-foreground: #1a1a18;
   --primary: #ba7517;
   --primary-foreground: #ffffff;
@@ -79,18 +79,18 @@
   --chart-4: #8b5cf6;
   --chart-5: #f97316;
   --radius: 0.5rem;
-  --sidebar: #f8f8f8;
-  --sidebar-foreground: #1a1a18;
+  --sidebar: #111110;
+  --sidebar-foreground: #f0ede8;
   --sidebar-primary: #ba7517;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(186, 117, 23, 0.1);
+  --sidebar-accent: rgba(186, 117, 23, 0.15);
   --sidebar-accent-foreground: #ba7517;
-  --sidebar-border: rgba(0, 0, 0, 0.1);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #ba7517;
 
   --fm-amber: #ba7517;
   --fm-surface: #fafafa;
-  --fm-sidebar: #f8f8f8;
+  --fm-sidebar: #111110;
   --fm-text: #1a1a18;
   --fm-text-secondary: #71717a;
   --fm-border: rgba(0, 0, 0, 0.1);

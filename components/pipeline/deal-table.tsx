@@ -59,6 +59,7 @@ import {
   EyeOff,
   Plus,
   RotateCcw,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getDefaultColumnConfig, getFieldLabel, getDealTypeConfig, type ColumnConfig } from "@/lib/deal-types"
@@ -117,6 +118,11 @@ export interface Deal {
     completedCount: number
     totalCount: number
   } | null
+  _counts?: {
+    openTasks: number
+    scheduledShowings: number
+    comments: number
+  }
 }
 
 export interface StageOption {
@@ -257,6 +263,7 @@ export function DealTable({
 
   // Notes peek state
   const [hoveredDeal, setHoveredDeal] = useState<Deal | null>(null)
+  const [pinnedNoteDeal, setPinnedNoteDeal] = useState<Deal | null>(null)
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
   const [mouseX, setMouseX] = useState(0)
   const [mouseY, setMouseY] = useState(0)
@@ -376,7 +383,7 @@ export function DealTable({
       !!filters.dateTo,
       filters.myDeals,
       filters.archivedOnly,
-      filters.staleOnly,
+      filters.flaggedOnly,
     ].filter(Boolean).length
   }, [filters])
 
@@ -401,9 +408,10 @@ export function DealTable({
 
     // Apply advanced filters
     if (filters.agents.length > 0) {
-      result = result.filter((d) =>
-        resolveDealAgents(d).some((a) => filters.agents.includes(a.id))
-      )
+      result = result.filter((d) => {
+        const dealAgentIds = resolveDealAgents(d).map((a) => a.id)
+        return filters.agents.every((id) => dealAgentIds.includes(id))
+      })
     }
     if (filters.boroughs.length > 0) {
       result = result.filter((d) => d.borough && filters.boroughs.includes(d.borough))
@@ -430,11 +438,27 @@ export function DealTable({
     if (filters.myDeals && currentUserId) {
       result = result.filter((d) => resolveDealAgents(d).some((a) => a.id === currentUserId))
     }
-    if (filters.staleOnly) {
-      const staleDays = parseInt((typeof window !== "undefined" ? localStorage.getItem("door-config-threshold-stale-days") : null) || "7", 10)
+    if (filters.flaggedOnly) {
+      const now = Date.now()
+      const toMs = (v: unknown): number => {
+        if (!v) return now
+        if (v instanceof Date) return v.getTime()
+        if (typeof v === "string") return new Date(v).getTime()
+        return now
+      }
+      const staleDays = parseInt(localStorage.getItem("door-config-threshold-stale-days") || "7", 10)
+      const stuckDays = parseInt(localStorage.getItem("door-config-threshold-stage-no-change-days") || "14", 10)
+      const agentDays = parseInt(localStorage.getItem("door-config-threshold-agent-deal-days") || "30", 10)
       result = result.filter(d => {
-        const daysSince = Math.floor((Date.now() - new Date(d.updatedAt).getTime()) / 86400000)
-        return daysSince >= staleDays && !d.isArchived
+        if (d.isArchived) return false
+        const updMs = toMs((d.rawData as Record<string,unknown>)?.updatedAt) || toMs(d.updatedAt)
+        const creMs = toMs((d.rawData as Record<string,unknown>)?.createdAt) || toMs(d.createdAt)
+        const updDays = Math.floor((now - updMs) / 86400000)
+        const creDays = Math.floor((now - creMs) / 86400000)
+        if (localStorage.getItem("door-config-alert-stale-tag") !== "false" && updDays >= staleDays) return true
+        if (localStorage.getItem("door-config-alert-stage-no-change") !== "false" && updDays >= stuckDays) return true
+        if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false" && creDays >= agentDays && resolveDealAgents(d).length > 0) return true
+        return false
       })
     }
     if (filters.archivedOnly) {
@@ -484,14 +508,34 @@ export function DealTable({
       }
     })
 
-    // If stale-at-top preference is on, move stale deals before non-stale
-    const staleAtTop = localStorage.getItem("door-stale-deals-top") === "true"
-    if (staleAtTop && !filters.archivedOnly) {
-      const staleDays = parseInt((typeof window !== "undefined" ? localStorage.getItem("door-config-threshold-stale-days") : null) || "7", 10)
-      const isStale = (d: Deal) => Math.floor((Date.now() - new Date(d.updatedAt).getTime()) / 86400000) >= staleDays && !d.isArchived
+    // If flagged-at-top preference is on (default true), sort flagged deals to top
+    const flaggedAtTop = localStorage.getItem("door-flagged-deals-top") !== "false"
+    if (flaggedAtTop && !filters.archivedOnly) {
+      const now = Date.now()
+      const toMs = (v: unknown): number => {
+        if (!v) return now
+        if (v instanceof Date) return v.getTime()
+        if (typeof v === "string") return new Date(v).getTime()
+        return now
+      }
+      const staleDays = parseInt(localStorage.getItem("door-config-threshold-stale-days") || "7", 10)
+      const stuckDays = parseInt(localStorage.getItem("door-config-threshold-stage-no-change-days") || "14", 10)
+      const agentDays = parseInt(localStorage.getItem("door-config-threshold-agent-deal-days") || "30", 10)
+      const isFlagged = (d: Deal) => {
+        if (d.isArchived) return false
+        const updMs = toMs((d.rawData as Record<string,unknown>)?.updatedAt) || toMs(d.updatedAt)
+        const creMs = toMs((d.rawData as Record<string,unknown>)?.createdAt) || toMs(d.createdAt)
+        const updDays = Math.floor((now - updMs) / 86400000)
+        const creDays = Math.floor((now - creMs) / 86400000)
+        const agents = (d.agents || [])
+        if (localStorage.getItem("door-config-alert-stale-tag") !== "false" && updDays >= staleDays) return true
+        if (localStorage.getItem("door-config-alert-stage-no-change") !== "false" && updDays >= stuckDays) return true
+        if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false" && creDays >= agentDays && agents.length > 0) return true
+        return false
+      }
       result = [
-        ...result.filter(d => isStale(d)),
-        ...result.filter(d => !isStale(d)),
+        ...result.filter(d => isFlagged(d)),
+        ...result.filter(d => !isFlagged(d)),
       ]
     }
 
@@ -1177,6 +1221,76 @@ export function DealTable({
   // Column cell renderer
   const renderCell = (key: string, deal: Deal) => {
     const resolvedAgents = resolveDealAgents(deal)
+
+    // ── Flag computation ──────────────────────────────────────────
+    const flagMessages: string[] = []
+    if (!deal.isArchived && typeof window !== "undefined") {
+      const now = Date.now()
+      const toMs = (v: unknown): number => {
+        if (!v) return now
+        if (v instanceof Date) return v.getTime()
+        if (typeof v === "string") return new Date(v).getTime()
+        if (typeof v === "object") {
+          // Date serialized as {} — try to get from string representation
+          try { return new Date(String(v)).getTime() } catch { return now }
+        }
+        return now
+      }
+      // Fetch fresh timestamps directly from the API data via rawData
+      // rawData is the MockDeal which has Date objects
+      const updatedMs = toMs(deal.rawData?.updatedAt) || toMs(deal.updatedAt)
+      const createdMs = toMs(deal.rawData?.createdAt) || toMs(deal.createdAt)
+      const daysSinceMs = (ms: number) => Math.floor((now - ms) / 86400000)
+
+      // Stale flag
+      if (localStorage.getItem("door-config-alert-stale-tag") !== "false") {
+        const staleDays = parseInt(localStorage.getItem("door-config-threshold-stale-days") || "7", 10)
+        const d = daysSinceMs(updatedMs)
+        if (d >= staleDays) flagMessages.push(`Stale — no activity for ${d}d`)
+      }
+
+      // Stage stuck flag
+      if (localStorage.getItem("door-config-alert-stage-no-change") !== "false") {
+        const stageStuckDays = parseInt(localStorage.getItem("door-config-threshold-stage-no-change-days") || "14", 10)
+        const d = daysSinceMs(updatedMs)
+        if (d >= stageStuckDays) flagMessages.push(`Stage stuck — no stage change for ${d}d`)
+      }
+
+      // Agent too long flag
+      if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false") {
+        const agentDealDays = parseInt(localStorage.getItem("door-config-threshold-agent-deal-days") || "30", 10)
+        const d = daysSinceMs(createdMs)
+        if (d >= agentDealDays && resolvedAgents.length > 0) flagMessages.push(`Agent on deal for ${d}d`)
+      }
+    }
+    const hasFlags = flagMessages.length > 0
+    // Color: use most severe (red > orange > amber)
+    const flagColor = hasFlags
+      ? flagMessages.some(m => m.startsWith("Agent on deal")) ? "#ef4444"
+      : flagMessages.some(m => m.startsWith("Stage stuck")) ? "#f97316"
+      : "#f59e0b"
+      : null
+
+    const flagIndicator = hasFlags ? (
+      <span
+        className="relative inline-flex items-center ml-1.5 shrink-0"
+        title={flagMessages.join(" · ")}
+        style={{ cursor: "default" }}
+      >
+        {/* Outer pulse ring */}
+        <span
+          className="absolute inline-flex rounded-full opacity-75 animate-ping"
+          style={{ width: 8, height: 8, backgroundColor: flagColor! }}
+        />
+        {/* Inner solid dot */}
+        <span
+          className="relative inline-flex rounded-full"
+          style={{ width: 8, height: 8, backgroundColor: flagColor! }}
+        />
+      </span>
+    ) : null
+    // ─────────────────────────────────────────────────────────────
+
     const checklistProgress = deal.checklistProgress
     const checklistBadge =
       checklistProgress && checklistProgress.totalCount > 0 ? (
@@ -1204,12 +1318,12 @@ export function DealTable({
             transition={isUnlocked ? { duration: 0.4, ease: "linear", repeat: Infinity } : { duration: 0.1 }}
             className="w-full overflow-hidden"
           >
-            <div className="font-medium text-[13px] leading-tight truncate">
+            <div className="font-medium text-[13px] leading-tight flex items-center gap-0 min-w-0">
               <span
                 contentEditable={isUnlocked}
                 suppressContentEditableWarning
                 spellCheck={false}
-                className={isUnlocked ? "outline-none cursor-text block w-full" : "cursor-default"}
+                className={`truncate ${isUnlocked ? "outline-none cursor-text block w-full" : "cursor-default"}`}
                 onBlur={(e) => {
                   if (!isUnlocked) return
                   const newValue = e.currentTarget.textContent || ""
@@ -1228,6 +1342,7 @@ export function DealTable({
               >
                 {deal.primaryField}
               </span>
+              {flagIndicator}
             </div>
             {deal.borough && !boroughVisible && dealType !== "application" && (
               <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
@@ -1249,12 +1364,12 @@ export function DealTable({
               transition={isUnlocked ? { duration: 0.4, ease: "linear", repeat: Infinity } : { duration: 0.1 }}
               className="w-full"
             >
-              <div className="font-medium text-[13px] leading-tight truncate">
+              <div className="font-medium text-[13px] leading-tight flex items-center gap-0 min-w-0">
                 <span
                   contentEditable={isUnlocked}
                   suppressContentEditableWarning
                   spellCheck={false}
-                  className={isUnlocked ? "outline-none cursor-text block w-full" : "cursor-default"}
+                  className={`truncate ${isUnlocked ? "outline-none cursor-text block w-full" : "cursor-default"}`}
                   onBlur={(e) => {
                     if (!isUnlocked) return
                     const newValue = e.currentTarget.textContent || ""
@@ -1273,6 +1388,7 @@ export function DealTable({
                 >
                   {deal.primaryField}
                 </span>
+                {flagIndicator}
               </div>
               {checklistBadge}
             </motion.div>
@@ -1290,6 +1406,7 @@ export function DealTable({
         const addressVal = (deal.rawData?.address as string) || ""
         const unitVal = (deal.rawData?.unit as string) || ""
         const boroughVal = deal.borough || ""
+
         // Strip ", NY, USA" or ", New York, NY, USA" suffix for cleaner display
         const displayAddress = addressVal
           .replace(/, NY, USA$/i, "")
@@ -1303,30 +1420,33 @@ export function DealTable({
             transition={isUnlocked ? { duration: 0.4, ease: "linear", repeat: Infinity } : { duration: 0.1 }}
             className="w-full overflow-hidden"
           >
-            <span
-              contentEditable={isUnlocked}
-              suppressContentEditableWarning
-              spellCheck={false}
-              className={cn("text-[13px]", isUnlocked ? "outline-none cursor-text block w-full" : "truncate cursor-default")}
-              onClick={isUnlocked ? (e) => e.stopPropagation() : undefined}
-              onBlur={(e) => {
-                if (!isUnlocked) return
-                const newValue = e.currentTarget.textContent || ""
-                if (newValue !== addressVal) {
-                  handleInlineSave(deal.id, { address: newValue })
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  e.currentTarget.blur()
-                } else if (e.key === "Escape") {
-                  e.currentTarget.textContent = fullDisplay
-                }
-              }}
-            >
-              {fullDisplay || (!isUnlocked ? <span className="opacity-50">—</span> : null)}
-            </span>
+            <div className="flex items-center gap-0 min-w-0">
+              <span
+                contentEditable={isUnlocked}
+                suppressContentEditableWarning
+                spellCheck={false}
+                className={cn("text-[13px]", isUnlocked ? "outline-none cursor-text block w-full" : "truncate cursor-default")}
+                onClick={isUnlocked ? (e) => e.stopPropagation() : undefined}
+                onBlur={(e) => {
+                  if (!isUnlocked) return
+                  const newValue = e.currentTarget.textContent || ""
+                  if (newValue !== addressVal) {
+                    handleInlineSave(deal.id, { address: newValue })
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    e.currentTarget.blur()
+                  } else if (e.key === "Escape") {
+                    e.currentTarget.textContent = fullDisplay
+                  }
+                }}
+              >
+                {fullDisplay || (!isUnlocked ? <span className="opacity-50">—</span> : null)}
+              </span>
+              {flagIndicator}
+            </div>
             {/* Show borough below address when borough column is hidden */}
             {!boroughVisible && boroughVal && (
               <span className="text-[11px] text-muted-foreground block truncate">{boroughVal}</span>
@@ -1623,7 +1743,7 @@ export function DealTable({
                     title="View full note"
                     onClick={(e) => {
                       e.stopPropagation()
-                      setHoveredDeal(deal)
+                      setPinnedNoteDeal(deal)
                     }}
                   >
                     <Eye className="h-3.5 w-3.5" />
@@ -1734,16 +1854,7 @@ export function DealTable({
 
         return (
           <div className="flex items-center gap-0.5">
-            <button
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => {
-                setEmailDeal(deal)
-                setEmailModalOpen(true)
-              }}
-              title="Send email"
-            >
-              <Mail className="h-3.5 w-3.5" />
-            </button>
+{/* Email action shelved */}
             <button
               className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => { setHistoryDeal(deal); setHistoryOpen(true) }}
@@ -1870,7 +1981,7 @@ export function DealTable({
                 </span>
               )}
             </PopoverTrigger>
-            <PopoverContent className="p-0 w-[300px]" align="end">
+            <PopoverContent className="p-0 w-auto overflow-hidden" align="end">
               <FilterPanel
                 open={filterPanelOpen}
                 onClose={() => setFilterPanelOpen(false)}
@@ -1953,7 +2064,7 @@ export function DealTable({
       </div>}
 
       {/* Table */}
-      <div className={fullHeight ? "rounded-lg border border-border/50 bg-card overflow-hidden flex flex-col flex-1 min-h-0" : "rounded-lg border border-border/50 bg-card overflow-hidden"}>
+      <div className={fullHeight ? "rounded-lg border border-border/50 bg-card flex flex-col flex-1 min-h-0" : "rounded-lg border border-border/50 bg-card"}>
         <div ref={tableScrollRef} className={fullHeight ? "overflow-y-auto overflow-x-auto flex-1 min-h-0" : "overflow-auto"} style={fullHeight ? undefined : { maxHeight: "calc(100vh - 280px)" }}>
           <Table>
             <TableHeader className="sticky top-0 z-10 bg-card">
@@ -2151,6 +2262,30 @@ export function DealTable({
         />
       )}
 
+      {/* Pinned Note Modal (eye button) */}
+      {pinnedNoteDeal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center" onClick={() => setPinnedNoteDeal(null)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div
+            className="relative bg-card border border-border rounded-xl shadow-2xl p-5 w-[480px] max-w-[90vw] max-h-[70vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-3 shrink-0">
+              <div>
+                <h4 className="text-sm font-medium">{pinnedNoteDeal.primaryField}</h4>
+                {pinnedNoteDeal.borough && <p className="text-xs text-muted-foreground">{pinnedNoteDeal.borough}</p>}
+              </div>
+              <button onClick={() => setPinnedNoteDeal(null)} className="text-muted-foreground hover:text-foreground shrink-0">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground">{pinnedNoteDeal.notes}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Deal Modal (Create/Edit) */}
       <DealModal
         open={dealModalOpen}
@@ -2170,6 +2305,7 @@ export function DealTable({
           setHistoryDeal(editingDeal)
           setHistoryOpen(true)
         } : undefined}
+        isAdmin={isAdmin}
       />
 
       <DealModal

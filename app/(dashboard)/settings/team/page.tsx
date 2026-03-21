@@ -357,6 +357,9 @@ export default function TeamPage() {
         </div>
       )}
 
+      {/* Agent Activity Alerts */}
+      <AgentActivityAlerts />
+
       {/* Deactivate / Activate Confirm Modal */}
       {deactivateConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -534,4 +537,85 @@ export default function TeamPage() {
       )}
     </div>
   );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200",
+        checked ? "bg-[var(--fm-amber)]" : "bg-muted"
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200",
+          checked ? "translate-x-4" : "translate-x-0"
+        )}
+      />
+    </button>
+  )
+}
+
+function AgentActivityAlerts() {
+  const [alertEnabled, setAlertEnabled] = useState(true)
+  const [threshold, setThreshold] = useState(7)
+
+  useEffect(() => {
+    setAlertEnabled(localStorage.getItem("door-config-alert-agent-inactive") !== "false")
+    const stored = parseInt(localStorage.getItem("door-config-threshold-agent-inactive-days") || "7", 10)
+    setThreshold(stored)
+  }, [])
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground/80 mb-4">Activity Alerts</h2>
+      <div className="rounded-xl border border-border divide-y divide-border">
+        <div className="flex items-center justify-between px-4 py-3.5">
+          <div>
+            <p className="text-[14px] text-foreground">Flag inactive agents</p>
+            <p className="text-[13px] text-muted-foreground">Highlight agents on the team page who haven't logged in past the threshold</p>
+          </div>
+          <Toggle
+            checked={alertEnabled}
+            onChange={(v) => {
+              setAlertEnabled(v)
+              localStorage.setItem("door-config-alert-agent-inactive", String(v))
+            }}
+          />
+        </div>
+        {alertEnabled && (
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div>
+              <p className="text-[14px] text-foreground">Inactivity threshold</p>
+              <p className="text-[13px] text-muted-foreground">Days without login before flagging</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const v = Math.max(1, threshold - 1)
+                  setThreshold(v)
+                  localStorage.setItem("door-config-threshold-agent-inactive-days", String(v))
+                }}
+                className="h-7 w-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors text-sm"
+              >−</button>
+              <span className="text-sm font-medium w-10 text-center">{threshold}d</span>
+              <button
+                onClick={() => {
+                  const v = Math.min(30, threshold + 1)
+                  setThreshold(v)
+                  localStorage.setItem("door-config-threshold-agent-inactive-days", String(v))
+                }}
+                className="h-7 w-7 rounded-md border border-border flex items-center justify-center text-muted-foreground hover:bg-accent transition-colors text-sm"
+              >+</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  )
 }

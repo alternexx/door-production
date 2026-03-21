@@ -49,11 +49,14 @@ export async function PATCH(
     name: string;
     color: string;
     orderIndex: number;
+    outcome: "win" | "loss" | "na" | null;
   }> = {};
 
   if (typeof body.name === "string") updates.name = body.name;
   if (typeof body.color === "string") updates.color = body.color;
   if (typeof body.orderIndex === "number") updates.orderIndex = body.orderIndex;
+  if (body.outcome === "win" || body.outcome === "loss" || body.outcome === "na") updates.outcome = body.outcome;
+  if (body.outcome === null) updates.outcome = null;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(

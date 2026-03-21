@@ -57,6 +57,8 @@ export default function PreferencesPage() {
   const [stageTooltip, setStageTooltip] = useState(true);
   const [priceDollarFormat, setPriceDollarFormat] = useState(true);
   const [staleDealsTop, setStaleDealsTop] = useState(false);
+  const [flaggedDealsTop, setFlaggedDealsTop] = useState(true);
+  const [autoSave, setAutoSave] = useState(true);
   const [agentsReorderStages, setAgentsReorderStages] = useState(false);
   const [agentsConfigureColumns, setAgentsConfigureColumns] = useState(false);
   const [stagesModalOpen, setStagesModalOpen] = useState(false);
@@ -73,6 +75,8 @@ export default function PreferencesPage() {
     setStageTooltip(localStorage.getItem("door-stage-tooltip-hover") !== "false");
     setPriceDollarFormat(localStorage.getItem("door-price-dollar-format") !== "false");
     setStaleDealsTop(localStorage.getItem("door-stale-deals-top") === "true");
+    setFlaggedDealsTop(localStorage.getItem("door-flagged-deals-top") !== "false");
+    setAutoSave(localStorage.getItem("door-autosave") !== "false");
     setAgentsReorderStages(localStorage.getItem("door-config-agents-reorder-stages") === "true");
     setAgentsConfigureColumns(localStorage.getItem("door-config-col-agents-configure") === "true");
   }, []);
@@ -235,10 +239,17 @@ export default function PreferencesPage() {
 
           <div className="flex items-center justify-between py-3">
             <div>
-              <p className="text-[14px] text-foreground">Stale deals at top</p>
-              <p className="text-[13px] text-muted-foreground">Automatically sort stale deals to the top of the pipeline</p>
+              <p className="text-[14px] text-foreground">Flagged deals at top</p>
+              <p className="text-[13px] text-muted-foreground">Sort flagged deals (stale, stuck, agent) to the top of the pipeline by default</p>
             </div>
-            <Toggle checked={staleDealsTop} onChange={(v) => { setStaleDealsTop(v); localStorage.setItem("door-stale-deals-top", String(v)); }} />
+            <Toggle checked={flaggedDealsTop} onChange={(v) => { setFlaggedDealsTop(v); localStorage.setItem("door-flagged-deals-top", String(v)); }} />
+          </div>
+          <div className="flex items-center justify-between py-3 border-b last:border-0">
+            <div>
+              <p className="text-[14px] text-foreground">Auto-save deals</p>
+              <p className="text-[13px] text-muted-foreground">Automatically save changes while editing — turn off to use a manual Save button</p>
+            </div>
+            <Toggle checked={autoSave} onChange={(v) => { setAutoSave(v); localStorage.setItem("door-autosave", String(v)); }} />
           </div>
 
         </div>

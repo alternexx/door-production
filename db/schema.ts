@@ -8,6 +8,7 @@ import {
   jsonb,
   date,
   uniqueIndex,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -20,6 +21,7 @@ export const users = pgTable("users", {
     .notNull()
     .default("agent"),
   isActive: boolean("is_active").notNull().default(true),
+  lastActiveAt: timestamp("last_active_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -35,6 +37,7 @@ export const pipelineStages = pgTable("pipeline_stages", {
   isClosedWon: boolean("is_closed_won").notNull().default(false),
   isClosedLost: boolean("is_closed_lost").notNull().default(false),
   staleThresholdDays: integer("stale_threshold_days"),
+  outcome: text("outcome", { enum: ["win", "loss", "na"] }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -77,6 +80,8 @@ export const deals = pgTable("deals", {
   archiveReason: text("archive_reason"),
   showingScheduledAt: timestamp("showing_scheduled_at"),
   showingAgentId: uuid("showing_agent_id").references(() => users.id),
+  commission: numeric("commission", { precision: 12, scale: 2 }),
+  applicationPrice: numeric("application_price", { precision: 12, scale: 2 }),
   commissionData: jsonb("commission_data"),
   createdBy: uuid("created_by")
     .notNull()
@@ -205,6 +210,9 @@ export const showings = pgTable("showings", {
   cancelledAt: timestamp("cancelled_at"),
   cancelReason: text("cancel_reason"),
   rescheduledFrom: uuid("rescheduled_from"),
+  showingType: text("showing_type", { enum: ["private", "open_house"] }).notNull().default("private"),
+  token: text("token"),
+  propertyLabel: text("property_label"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
