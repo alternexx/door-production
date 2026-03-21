@@ -30,21 +30,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Skip in dev — auth is bypassed
-    if (process.env.NODE_ENV === "development") return;
-
-    fetch("/api/auth/me")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.blocked) router.replace("/not-invited");
-        if (data.unauthorized) router.replace("/sign-in");
-      })
-      .catch(() => {});
-  }, [router]);
-
   return <>{children}</>;
 }
 
