@@ -26,8 +26,9 @@ export default clerkMiddleware(async (auth, request) => {
   if (request.nextUrl.pathname.startsWith("/api/")) return;
 
   // Check if this Clerk user exists in our DB
-  const baseUrl = request.nextUrl.origin;
-  const res = await fetch(`${baseUrl}/api/users/me?clerkId=${userId}`, {
+  // Use APP_URL env var to avoid SSL loopback issues on Railway edge runtime
+  const appUrl = process.env.APP_URL || request.nextUrl.origin;
+  const res = await fetch(`${appUrl}/api/users/me?clerkId=${userId}`, {
     headers: { "x-internal": "1" },
   });
 
