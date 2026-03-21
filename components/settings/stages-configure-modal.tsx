@@ -424,10 +424,24 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
         const localColors = loadStageColorsFromStorage(activeDealType, "door-config");
         setStageColors({ ...dbColorsByName, ...localColors });
 
-        // Always set items from DB — DB is source of truth for stage names/order
+        // Set items from localStorage (preserves groups) but validate against DB
         if (stages.length > 0) {
-          const dbItems = stages.map((s, i) => toId(s.name, i));
-          setItems(dbItems);
+          const prefix = "door-config";
+          const savedItems: string[] = (() => {
+            try {
+              const raw = localStorage.getItem(`${prefix}-items-${activeDealType}`);
+              return raw ? JSON.parse(raw) : [];
+            } catch { return []; }
+          })();
+          const dbNames = new Set(stages.map(s => s.name));
+          if (savedItems.length > 0) {
+            const filtered = savedItems.filter(id => isGroupId(id) || dbNames.has(fromId(id)));
+            const presentNames = new Set(filtered.filter(id => !isGroupId(id)).map(fromId));
+            const missing = stages.filter(s => !presentNames.has(s.name)).map((s, i) => toId(s.name, stages.indexOf(s)));
+            setItems([...filtered, ...missing]);
+          } else {
+            setItems(stages.map((s, i) => toId(s.name, i)));
+          }
           setKey(k => k + 1);
         }
       })
@@ -526,9 +540,25 @@ export function StagesConfigureModal({ open, onOpenChange }: StagesConfigureModa
         .then((stages: DbStage[]) => {
           if (stages.length > 0) {
             setDbStages(stages);
-            const dbItems = stages.map((s, i) => toId(s.name, i));
-            setItems(dbItems);
-            fetchedTabRef.current = activeDealType; // prevent auto-refetch from useEffect
+            // Restore items from localStorage (preserves group markers) but update stage names from DB
+            const prefix = "door-config";
+            const savedItems: string[] = (() => {
+              try {
+                const raw = localStorage.getItem(`${prefix}-items-${activeDealType}`);
+                return raw ? JSON.parse(raw) : [];
+              } catch { return []; }
+            })();
+            const dbNames = new Set(stages.map(s => s.name));
+            if (savedItems.length > 0) {
+              // Keep group markers, filter out stages no longer in DB, add any new DB stages
+              const filtered = savedItems.filter(id => isGroupId(id) || dbNames.has(fromId(id)));
+              const presentNames = new Set(filtered.filter(id => !isGroupId(id)).map(fromId));
+              const missing = stages.filter(s => !presentNames.has(s.name)).map((s, i) => toId(s.name, stages.indexOf(s)));
+              setItems([...filtered, ...missing]);
+            } else {
+              setItems(stages.map((s, i) => toId(s.name, i)));
+            }
+            fetchedTabRef.current = activeDealType;
           }
           window.dispatchEvent(new Event("door:stages-updated"));
         })

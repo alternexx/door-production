@@ -35,8 +35,17 @@ export async function GET() {
     buyerPriceResult,
     tenantRepCommissionResult,
     applicationsTotalResult,
-    winsResult,
-    lossesResult,
+    applicationsPriceTotalResult,
+    rentalWinsResult,
+    rentalLossesResult,
+    sellerWinsResult,
+    sellerLossesResult,
+    buyerWinsResult,
+    buyerLossesResult,
+    tenantRepWinsResult,
+    tenantRepLossesResult,
+    applicationWinsResult,
+    applicationLossesResult,
   ] = await Promise.all([
     // activityFeed: last 50 dealHistory
     db
@@ -175,37 +184,76 @@ export async function GET() {
         and(eq(deals.dealType, "application"), eq(deals.status, "active"))
       ),
 
-    // application wins (archived + stage outcome = win)
+    // applications price total (sum of application_price for active application deals)
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ total: sql<number>`coalesce(sum(${deals.applicationPrice}::numeric), 0)::numeric` })
       .from(deals)
-      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
       .where(
-        and(
-          eq(deals.dealType, "application"),
-          eq(deals.status, "archived"),
-          eq(pipelineStages.outcome, "win")
-        )
+        and(eq(deals.dealType, "application"), eq(deals.status, "active"))
       ),
 
-    // application losses
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(deals)
+    // rental wins
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
       .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
-      .where(
-        and(
-          eq(deals.dealType, "application"),
-          eq(deals.status, "archived"),
-          eq(pipelineStages.outcome, "loss")
-        )
-      ),
+      .where(and(eq(deals.dealType, "rental"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "win"))),
+    // rental losses
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "rental"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "loss"))),
+    // seller wins
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "seller"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "win"))),
+    // seller losses
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "seller"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "loss"))),
+    // buyer wins
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "buyer"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "win"))),
+    // buyer losses
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "buyer"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "loss"))),
+    // tenant_rep wins
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "tenant_rep"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "win"))),
+    // tenant_rep losses
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "tenant_rep"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "loss"))),
+    // application wins
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "application"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "win"))),
+    // application losses
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
+      .where(and(eq(deals.dealType, "application"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "loss"))),
   ]);
 
-  const wins = winsResult[0]?.count ?? 0;
-  const losses = lossesResult[0]?.count ?? 0;
-  const winLossTotal = wins + losses;
-  const winRate = winLossTotal > 0 ? Math.round((wins / winLossTotal) * 100) : 0;
+  function calcWinRate(winsRes: typeof rentalWinsResult, lossesRes: typeof rentalLossesResult) {
+    const w = winsRes[0]?.count ?? 0;
+    const l = lossesRes[0]?.count ?? 0;
+    const t = w + l;
+    return { wins: w, losses: l, total: t, rate: t > 0 ? Math.round((w / t) * 100) : 0 };
+  }
+
+  const winRates = {
+    rental: calcWinRate(rentalWinsResult, rentalLossesResult),
+    seller: calcWinRate(sellerWinsResult, sellerLossesResult),
+    buyer: calcWinRate(buyerWinsResult, buyerLossesResult),
+    tenantRep: calcWinRate(tenantRepWinsResult, tenantRepLossesResult),
+    application: calcWinRate(applicationWinsResult, applicationLossesResult),
+  };
+
+  // Backwards compat
+  const wins = winRates.application.wins;
+  const losses = winRates.application.losses;
+  const winLossTotal = winRates.application.total;
+  const winRate = winRates.application.rate;
 
   // Build agent deal counts map
   const agentDealCountsMap: Record<string, number> = {};
@@ -251,11 +299,13 @@ export async function GET() {
     },
     dealCounts: dealCountsByType,
     applicationsTotal: applicationsTotalResult[0]?.count ?? 0,
+    applicationsPriceTotal: Number(applicationsPriceTotalResult[0]?.total ?? 0),
     applicationsWinRate: {
       wins,
       losses,
       total: winLossTotal,
       rate: winRate,
     },
+    winRates,
   });
 }

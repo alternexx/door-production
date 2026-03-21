@@ -42,11 +42,19 @@ interface DashboardData {
   };
   dealCounts: Record<string, number>;
   applicationsTotal: number;
+  applicationsPriceTotal: number;
   applicationsWinRate: {
     wins: number;
     losses: number;
     total: number;
     rate: number;
+  };
+  winRates: {
+    rental: { wins: number; losses: number; total: number; rate: number };
+    seller: { wins: number; losses: number; total: number; rate: number };
+    buyer: { wins: number; losses: number; total: number; rate: number };
+    tenantRep: { wins: number; losses: number; total: number; rate: number };
+    application: { wins: number; losses: number; total: number; rate: number };
   };
 }
 
@@ -113,7 +121,7 @@ export default function DashboardPage() {
 
   if (!data) {
     return (
-      <div className="h-full overflow-auto p-4 lg:p-6">
+      <div className="h-full overflow-hidden p-4 lg:p-6">
         <div className="mx-auto max-w-6xl">
           <h1 className="text-2xl font-semibold text-foreground mb-6">
             Dashboard
@@ -129,21 +137,31 @@ export default function DashboardPage() {
       label: "Rentals",
       count: data.dealCounts["rental"] ?? 0,
       sub: `${formatMoney(data.priceTotals.rentals)} total`,
+      rawVal: data.priceTotals.rentals,
     },
     {
       label: "Sellers",
       count: data.dealCounts["seller"] ?? 0,
       sub: `${formatMoney(data.priceTotals.sellers)} total`,
+      rawVal: data.priceTotals.sellers,
     },
     {
       label: "Buyers",
       count: data.dealCounts["buyer"] ?? 0,
       sub: `${formatMoney(data.priceTotals.buyers)} total`,
+      rawVal: data.priceTotals.buyers,
     },
     {
       label: "Tenant Rep",
       count: data.dealCounts["tenant_rep"] ?? 0,
       sub: `${formatMoney(data.priceTotals.tenantRep)} commission`,
+      rawVal: data.priceTotals.tenantRep,
+    },
+    {
+      label: "Applications",
+      count: data.applicationsTotal,
+      sub: `${formatMoney(data.applicationsPriceTotal)} total`,
+      rawVal: data.applicationsPriceTotal,
     },
   ];
 
@@ -158,65 +176,59 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="flex h-full">
-
-        {/* Left column — Agent Presence */}
-        <div className="w-[200px] shrink-0 border-r border-border bg-card overflow-y-auto p-3 space-y-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Team</p>
-          {data.agents.filter((a) => a.isActive).map((a) => (
-            <div key={a.id} className="flex items-start gap-2 px-1 py-1.5">
-              <div className={`h-2 w-2 rounded-full shrink-0 mt-1 ${presenceDot(a.lastActiveAt)}`} />
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-foreground truncate">{a.name}</p>
-                <p className="text-[10px] text-muted-foreground">{presenceLabel(a.lastActiveAt)}</p>
-                <p className="text-[10px] text-muted-foreground">{data.agentDealCounts[a.id] ?? 0} deals</p>
-              </div>
-            </div>
-          ))}
-          {data.agents.filter(a => a.isActive).length === 0 && (
-            <p className="text-xs text-muted-foreground px-1">No agents</p>
-          )}
-        </div>
-
-        {/* Center — main content */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+    <div className="h-full overflow-hidden">
+      <div className="h-full overflow-y-auto p-4 lg:p-6 space-y-5">
           <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
 
           {/* Pipeline Volume */}
           <div>
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Pipeline Volume</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {topCards.map((c) => {
-              // get raw number for tooltip
-              const rawVal = c.label === "Rentals" ? data.priceTotals.rentals
-                : c.label === "Sellers" ? data.priceTotals.sellers
-                : c.label === "Buyers" ? data.priceTotals.buyers
-                : c.label === "Tenant Rep" ? data.priceTotals.tenantRep
-                : null
-              return (
+            {topCards.map((c) => (
               <div key={c.label} className="bg-card border rounded-xl p-4 flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">{c.label}</span>
                 <span className="text-2xl font-semibold text-foreground">{c.count}</span>
                 <span
                   className="text-xs text-muted-foreground cursor-default"
-                  title={rawVal != null ? `$${rawVal.toLocaleString()}` : undefined}
+                  title={`$${c.rawVal.toLocaleString()}`}
                 >{c.sub}</span>
               </div>
-            )})}
-            <div className="bg-card border rounded-xl p-4 flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Applications</span>
-              <span className="text-2xl font-semibold text-foreground">{data.applicationsTotal}</span>
-              {data.applicationsWinRate.total > 0 ? (
-                <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full w-fit ${data.applicationsWinRate.rate > 50 ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>
-                  {data.applicationsWinRate.rate}% win rate
-                </span>
-              ) : (
-                <span className="text-xs px-1.5 py-0.5 rounded-full w-fit bg-muted text-muted-foreground">Not enough data</span>
-              )}
+            ))}
+          </div>
+          </div>
+
+          {/* Win Rates */}
+          {data.winRates && (
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Win Rates</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {([
+                { label: "Rentals", key: "rental" as const },
+                { label: "Sellers", key: "seller" as const },
+                { label: "Buyers", key: "buyer" as const },
+                { label: "Tenant Rep", key: "tenantRep" as const },
+                { label: "Applications", key: "application" as const },
+              ]).map((item) => {
+                const wr = data.winRates[item.key];
+                return (
+                  <div key={item.key} className="bg-card border rounded-xl p-4 flex flex-col gap-1">
+                    <span className="text-xs text-muted-foreground">{item.label}</span>
+                    {wr.total > 0 ? (
+                      <>
+                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full w-fit ${wr.rate > 50 ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>
+                          {wr.rate}% win rate
+                        </span>
+                        <span className="text-xs text-muted-foreground">({wr.wins} wins / {wr.total} total)</span>
+                      </>
+                    ) : (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full w-fit bg-muted text-muted-foreground">Not enough data</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
-          </div>
+          )}
 
           {/* Stage Distribution */}
           <div className="bg-card border rounded-xl p-4 space-y-3">
@@ -266,31 +278,49 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right column — Activity Feed */}
-        <div className="w-[280px] shrink-0 border-l border-border bg-card overflow-hidden flex flex-col">
-          <div className="px-4 pt-4 pb-2 border-b border-border shrink-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Activity</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{data.stageChangesToday} stage changes today</p>
-          </div>
-          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
-            {data.activityFeed.map((entry, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs py-1 border-b border-border/30 last:border-0">
-                <div className={`h-2 w-2 rounded-full mt-1 shrink-0 ${FIELD_DOT_COLORS[entry.field] || "bg-muted-foreground"}`} />
-                <div className="min-w-0 flex-1">
-                  <span className="font-medium text-foreground">{entry.changedByName}</span>{" "}
-                  <span className="text-muted-foreground">
-                    changed <span className="text-foreground">{entry.field}</span>
-                    {entry.newValue && <> → <span className="text-foreground">{entry.newValue}</span></>}
-                  </span>
-                  <div className="text-muted-foreground/60 mt-0.5">{relativeTime(entry.changedAt)}</div>
+          {/* Team + Activity row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Team */}
+            <div className="bg-card border rounded-xl p-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team</p>
+              {data.agents.filter((a) => a.isActive).map((a) => (
+                <div key={a.id} className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${presenceDot(a.lastActiveAt)}`} />
+                  <span className="text-xs font-medium text-foreground truncate flex-1">{a.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{presenceLabel(a.lastActiveAt)}</span>
+                  <span className="text-[10px] text-muted-foreground ml-2">{data.agentDealCounts[a.id] ?? 0} deals</span>
                 </div>
+              ))}
+              {data.agents.filter(a => a.isActive).length === 0 && (
+                <p className="text-xs text-muted-foreground">No agents</p>
+              )}
+            </div>
+
+            {/* Activity */}
+            <div className="bg-card border rounded-xl p-4 flex flex-col max-h-[240px] overflow-hidden">
+              <div className="flex items-center justify-between mb-2 shrink-0">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Activity</p>
+                <span className="text-[10px] text-muted-foreground">{data.stageChangesToday} today</span>
               </div>
-            ))}
-            {data.activityFeed.length === 0 && <p className="text-xs text-muted-foreground">No activity yet</p>}
+              <div className="overflow-y-auto space-y-1.5">
+                {data.activityFeed.slice(0, 20).map((entry, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs py-1 border-b border-border/30 last:border-0">
+                    <div className={`h-2 w-2 rounded-full mt-1 shrink-0 ${FIELD_DOT_COLORS[entry.field] || "bg-muted-foreground"}`} />
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium text-foreground">{entry.changedByName}</span>{" "}
+                      <span className="text-muted-foreground">
+                        changed <span className="text-foreground">{entry.field}</span>
+                        {entry.newValue && <> → <span className="text-foreground">{entry.newValue}</span></>}
+                      </span>
+                      <div className="text-muted-foreground/60 mt-0.5">{relativeTime(entry.changedAt)}</div>
+                    </div>
+                  </div>
+                ))}
+                {data.activityFeed.length === 0 && <p className="text-xs text-muted-foreground">No activity yet</p>}
+              </div>
+            </div>
           </div>
-        </div>
 
       </div>
     </div>

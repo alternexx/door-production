@@ -182,13 +182,21 @@ export default function TeamPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Team</h1>
-        <button
-          onClick={() => setShelfOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--fm-amber)] text-white text-sm font-medium hover:bg-[var(--fm-amber)]/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Invite Member
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            disabled
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium text-muted-foreground cursor-not-allowed opacity-60"
+          >
+            Agent Data
+          </button>
+          <button
+            onClick={() => setShelfOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--fm-amber)] text-white text-sm font-medium hover:bg-[var(--fm-amber)]/90 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Invite Member
+          </button>
+        </div>
       </div>
 
       {/* Search */}
