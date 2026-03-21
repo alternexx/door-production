@@ -21,6 +21,7 @@ import {
 import { useState } from "react";
 import { useSidebar } from "@/context/sidebar-context";
 import { useSettingsModal } from "@/context/settings-modal-context";
+import { useClerk } from "@clerk/nextjs";
 
 const pipelineItems = [
   { label: "Rentals", href: "/pipeline/rentals", icon: Home },
@@ -76,6 +77,7 @@ export function Sidebar() {
   const [peeking, setPeeking] = useState(false);
   const { collapsed, setCollapsed } = useSidebar();
   const { openSettings } = useSettingsModal();
+  const { signOut } = useClerk();
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -190,17 +192,21 @@ export function Sidebar() {
       </div>
 
       {/* User */}
-      <div className={cn(
-        "py-3 border-t border-[var(--sidebar-border)] flex items-center gap-3",
-        effectiveCollapsed ? "justify-center px-0" : "px-4"
-      )}>
+      <button
+        onClick={() => signOut({ redirectUrl: "/sign-in" })}
+        title="Sign out"
+        className={cn(
+          "py-3 border-t border-[var(--sidebar-border)] flex items-center gap-3 w-full hover:bg-black/10 dark:hover:bg-white/5 transition-colors",
+          effectiveCollapsed ? "justify-center px-0" : "px-4"
+        )}
+      >
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fm-amber)] text-white text-xs font-medium shrink-0">
           SC
         </div>
         {!effectiveCollapsed && (
-          <span className="text-[13px] text-[var(--fm-text-secondary)] truncate">Account</span>
+          <span className="text-[13px] text-[var(--fm-text-secondary)] truncate">Sign out</span>
         )}
-      </div>
+      </button>
     </div>
   );
 
