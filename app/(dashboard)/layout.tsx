@@ -30,6 +30,20 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") return;
+
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.unauthorized) router.replace("/sign-in");
+        if (data.needsSetup) router.replace("/sign-in"); // not in DB → back to sign-in
+      })
+      .catch(() => {});
+  }, [router]);
+
   return <>{children}</>;
 }
 

@@ -22,7 +22,7 @@ export async function GET() {
     }
 
     if (!user.isActive) {
-      return NextResponse.json({ blocked: true });
+      return NextResponse.json({ needsSetup: true });
     }
 
     return NextResponse.json({
