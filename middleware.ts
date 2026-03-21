@@ -8,6 +8,9 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
+  // Bypass auth in local development
+  if (process.env.NODE_ENV === "development") return;
+
   // Let public routes through
   if (isPublicRoute(request)) return;
 
