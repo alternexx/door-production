@@ -41,7 +41,7 @@ function toDeal(d: MockDeal): Deal {
     price: d.price ? String(d.price) : null,
     stage: d.stage.name,
     stageColor: d.stage.color,
-    agents: (d.agents || []).map((a, i) => {
+    agents: (d.agents || []).filter(a => a.user?.name && a.user.name !== "[deleted]").map((a, i) => {
       const agentId = a.userId || a.user?.id || "";
       const agentName = a.user?.name || "Agent";
       return {
