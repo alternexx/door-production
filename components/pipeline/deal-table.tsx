@@ -103,7 +103,7 @@ export interface Deal {
   stage: string
   stageColor?: string
   stageTextColor?: string
-  agents: { id: number; name: string; color: string; position?: number }[]
+  agents: { id: string; name: string; color: string; position?: number }[]
   notes?: string | null
   email?: string | null
   phone?: string | null
@@ -132,7 +132,7 @@ export interface StageOption {
 }
 
 interface Agent {
-  id: number
+  id: string
   name: string
   color: string
 }
@@ -145,7 +145,7 @@ interface DealTableProps {
   showPrice?: boolean
   showDaysOnMarket?: boolean
   agents?: Agent[]
-  currentUserId?: number
+  currentUserId?: string
   isAdmin?: boolean
   applicationStages?: StageOption[]
   fullHeight?: boolean
@@ -212,12 +212,12 @@ export function DealTable({
   const [historyDeal, setHistoryDeal] = useState<Deal | null>(null)
   const [agentShelfOpen, setAgentShelfOpen] = useState(false)
   const [agentShelfDealId, setAgentShelfDealId] = useState<string | null>(null)
-  const [agentShelfSelectedIds, setAgentShelfSelectedIds] = useState<number[]>([])
+  const [agentShelfSelectedIds, setAgentShelfSelectedIds] = useState<string[]>([])
   const [promoteModalOpen, setPromoteModalOpen] = useState(false)
   const [promotingDeal, setPromotingDeal] = useState<Deal | null>(null)
   const [applicationModalOpen, setApplicationModalOpen] = useState(false)
   const [applicationPrefill, setApplicationPrefill] = useState<Record<string, unknown> | null>(null)
-  const [applicationAgentIds, setApplicationAgentIds] = useState<number[]>([])
+  const [applicationAgentIds, setApplicationAgentIds] = useState<string[]>([])
 
   const [pendingStageChange, setPendingStageChange] = useState<{
     dealId: string
@@ -295,23 +295,19 @@ export function DealTable({
     setColumns(loadColumnConfig(dealType))
   }, [dealType])
 
-  const parseAgentId = (value: unknown): number | null => {
-    if (typeof value === "number" && Number.isFinite(value)) return value
+  const parseAgentId = (value: unknown): string | null => {
     if (typeof value === "string") {
       const trimmed = value.trim()
-      if (!trimmed) return null
-      const asNum = Number(trimmed)
-      if (Number.isFinite(asNum)) return asNum
-      const trailingDigits = trimmed.match(/(\d+)$/)
-      if (trailingDigits) return Number(trailingDigits[1])
+      return trimmed || null
     }
+    if (typeof value === "number" && Number.isFinite(value)) return String(value)
     return null
   }
 
   const resolveDealAgents = (deal: Deal): Deal["agents"] => {
     if (deal.agents?.length) return deal.agents
     const raw = (deal.rawData || {}) as Record<string, unknown>
-    const ids: number[] = []
+    const ids: string[] = []
     const pushId = (val: unknown) => {
       const parsed = parseAgentId(val)
       if (parsed && !ids.includes(parsed)) ids.push(parsed)
@@ -652,7 +648,7 @@ export function DealTable({
     if (Array.isArray(data.agent_ids)) {
       const normalizedIds = (data.agent_ids as unknown[])
         .map((id) => parseAgentId(id))
-        .filter((id): id is number => id !== null)
+        .filter((id): id is string => id !== null)
       setDeals((prev) =>
         prev.map((deal) =>
           deal.id === dealId
@@ -978,7 +974,7 @@ export function DealTable({
     stage: string
     move_in_date: string
     notes: string
-    agent_ids: number[]
+    agent_ids: string[]
     buildingId?: string | null
   }) => {
     const appStages = getStages("application")
@@ -1089,7 +1085,7 @@ export function DealTable({
     toast.success(`${ids.length} deals updated`)
   }
 
-  const handleBulkAssignAgent = async (agentId: number) => {
+  const handleBulkAssignAgent = async (agentId: string) => {
     const ids = Array.from(selectedIds)
     ids.forEach((id) => {
       updateDeal(dealTypeKey, id, { agent_ids: [agentId] } as Record<string, unknown>)

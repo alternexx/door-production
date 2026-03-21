@@ -14,7 +14,7 @@ import { ArrowRight, Download, Trash2, Users, X } from "lucide-react"
 import type { StageOption } from "./deal-table"
 
 interface Agent {
-  id: number
+  id: string
   name: string
   color: string
 }
@@ -25,7 +25,7 @@ interface BulkActionsProps {
   stages: StageOption[]
   agents: Agent[]
   onChangeStage: (stage: string) => void
-  onAssignAgent: (agentId: number) => void
+  onAssignAgent: (agentId: string) => void
   onExportCsv: () => void
   onDelete?: () => void
   isAdmin?: boolean
@@ -75,7 +75,7 @@ export function BulkActions({
           </Select>
 
           {/* Assign Agent */}
-          <Select onValueChange={(v: unknown) => typeof v === "string" && onAssignAgent(parseInt(v))}>
+          <Select onValueChange={(v: unknown) => typeof v === "string" && onAssignAgent(v)}>
             <SelectTrigger className="h-8 w-[150px] text-xs">
               <Users className="h-3 w-3 mr-1" />
               <SelectValue placeholder="Assign Agent" />

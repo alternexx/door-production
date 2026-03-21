@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 interface Agent {
-  id: number
+  id: string
   name: string
   color: string
   position?: number
@@ -17,7 +17,7 @@ interface AgentChipProps {
   mode?: "initials" | "full"
   className?: string
   onRemove?: () => void
-  onClick?: (agentId: number) => void
+  onClick?: (agentId: string) => void
   active?: boolean
 }
 
@@ -123,8 +123,8 @@ export function AgentChipGroup({
 }: {
   agents: Agent[]
   mode?: "initials" | "full"
-  onAgentClick?: (agentId: number) => void
-  activeAgentIds?: number[]
+  onAgentClick?: (agentId: string) => void
+  activeAgentIds?: string[]
 }) {
   if (!agents.length) return <span className="text-muted-foreground text-xs">—</span>
 

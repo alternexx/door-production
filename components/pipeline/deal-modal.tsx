@@ -34,7 +34,7 @@ import { useDealContext } from "@/lib/deal-context"
 import type { Deal, StageOption } from "./deal-table"
 
 interface Agent {
-  id: number
+  id: string
   name: string
   color: string
 }
@@ -48,7 +48,7 @@ interface DealModalProps {
   agents: Agent[]
   stages: StageOption[]
   initialValues?: Record<string, unknown>
-  initialAgentIds?: number[]
+  initialAgentIds?: string[]
   onSave: (data: Record<string, unknown>) => Promise<void>
   onDelete?: (id: string) => Promise<void>
   viewOnly?: boolean
@@ -84,7 +84,7 @@ export function DealModal({
   const isEdit = !!deal
 
   const [form, setForm] = useState<Record<string, unknown>>({})
-  const [selectedAgentIds, setSelectedAgentIds] = useState<number[]>([])
+  const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
   const [agentPanelOpen, setAgentPanelOpen] = useState(false)
   const [stageShelfOpen, setStageShelfOpen] = useState(false)
   const [showingShelfOpen, setShowingShelfOpen] = useState(false)
@@ -119,7 +119,7 @@ export function DealModal({
     ? localStorage.getItem("door-autosave") !== "false"
     : true)
   const [initialForm, setInitialForm] = useState<Record<string, unknown>>({})
-  const [initialAgents, setInitialAgents] = useState<number[]>([])
+  const [initialAgents, setInitialAgents] = useState<string[]>([])
   const [buildings, setBuildings] = useState<BuildingOption[]>([])
   const [showAddBuildingPrompt, setShowAddBuildingPrompt] = useState(false)
   const [promptAddress, setPromptAddress] = useState("")
@@ -484,7 +484,7 @@ export function DealModal({
       .finally(() => setCommentsLoading(false))
   }, [open, deal?.id])
 
-  const toggleAgent = useCallback((id: number) => {
+  const toggleAgent = useCallback((id: string) => {
     setSelectedAgentIds((prev) => {
       const next = prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
       if (isEdit) {

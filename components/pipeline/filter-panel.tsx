@@ -10,13 +10,13 @@ import { CalendarIcon, ChevronLeft, X } from "lucide-react"
 import type { StageOption } from "./deal-table"
 
 interface Agent {
-  id: number
+  id: string
   name: string
   color: string
 }
 
 export interface FilterState {
-  agents: number[]
+  agents: string[]
   boroughs: string[]
   stages: string[]
   priceMin: string

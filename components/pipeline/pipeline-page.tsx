@@ -31,17 +31,6 @@ interface PipelinePageProps {
   dealType: DealType;
 }
 
-function toNumericAgentId(agentId: string | undefined, fallback: number): number {
-  if (!agentId) return fallback;
-  const trailingDigits = agentId.match(/(\d+)$/);
-  if (trailingDigits) return Number(trailingDigits[1]);
-
-  const hex = agentId.replace(/[^a-fA-F0-9]/g, "").slice(0, 8);
-  if (hex) return parseInt(hex, 16);
-
-  return fallback;
-}
-
 // Map MockDeal → Deal (v2 shape expected by deal-table)
 function toDeal(d: MockDeal): Deal {
   const checklistProgress = (d as unknown as { checklistProgress?: Deal["checklistProgress"] }).checklistProgress;
@@ -56,7 +45,7 @@ function toDeal(d: MockDeal): Deal {
       const agentId = a.userId || a.user?.id || "";
       const agentName = a.user?.name || "Agent";
       return {
-        id: toNumericAgentId(agentId, i + 1),
+        id: agentId,
         name: agentName,
         color: resolveAgentColor(agentId, agentName),
         position: i,
@@ -151,8 +140,8 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
   }));
 
   // Map agents to v2 shape
-  const agentList = agents.map((a, i) => ({
-    id: toNumericAgentId(a.id, i + 1),
+  const agentList = agents.map((a) => ({
+    id: a.id,
     name: a.name,
     color: resolveAgentColor(a.id, a.name),
   }));
@@ -231,7 +220,7 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
           showDaysOnMarket={config.showDaysOnMarket}
           agents={agentList}
           applicationStages={appStageOptions}
-          currentUserId={1}
+          currentUserId={currentAgent?.id}
           isAdmin={true}
           fullHeight
         />

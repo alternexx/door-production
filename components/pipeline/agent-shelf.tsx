@@ -8,7 +8,7 @@ import { Search, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface Agent {
-  id: number
+  id: string
   name: string
   color: string
 }
@@ -17,8 +17,8 @@ interface AgentShelfProps {
   open: boolean
   onClose: () => void
   agents: Agent[]
-  selectedIds: number[]
-  onToggle: (id: number) => void
+  selectedIds: string[]
+  onToggle: (id: string) => void
   anchorRef?: React.RefObject<HTMLElement>
 }
 
