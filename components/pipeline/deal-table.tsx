@@ -81,7 +81,53 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { useDealContext } from "@/lib/deal-context"
 import type { DealType } from "@/db/schema"
+import type { MockDeal } from "@/lib/mock-data"
+import { AGENT_COLORS } from "@/lib/tokens"
 import { toast } from "sonner"
+
+function resolveAgentColor(agentId: string, agentName: string): string {
+  try {
+    const custom = typeof window !== "undefined" ? localStorage.getItem("door-team-agent-colors") : null
+    if (custom) {
+      const map = JSON.parse(custom) as Record<string, string>
+      if (map[agentId]) return map[agentId]
+    }
+  } catch {}
+  if (AGENT_COLORS[agentName]) return AGENT_COLORS[agentName]
+  return "#9ca3af"
+}
+
+// Map MockDeal → Deal (display shape expected by deal-table internals)
+function toDeal(d: MockDeal): Deal {
+  const checklistProgress = (d as unknown as { checklistProgress?: Deal["checklistProgress"] }).checklistProgress
+  return {
+    id: d.id,
+    primaryField: d.title,
+    borough: d.borough ?? null,
+    price: d.price ? String(d.price) : null,
+    stage: d.stage.name,
+    stageColor: d.stage.color,
+    agents: (d.agents || []).filter(a => a.user?.name && a.user.name !== "[deleted]").map((a, i) => {
+      const agentId = a.userId || a.user?.id || ""
+      const agentName = a.user?.name || "Agent"
+      return {
+        id: agentId,
+        name: agentName,
+        color: resolveAgentColor(agentId, agentName),
+        position: i,
+      }
+    }),
+    notes: d.notes ?? null,
+    email: d.clientEmail ?? null,
+    phone: d.clientPhone ?? null,
+    updatedAt: d.updatedAt instanceof Date ? d.updatedAt.toISOString() : d.updatedAt,
+    createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
+    daysOnMarket: (d as unknown as { daysOnMarket?: number }).daysOnMarket ?? null,
+    isArchived: d.status === "archived",
+    rawData: { ...(d as unknown as Record<string, unknown>), agents: undefined, agent_ids: undefined, agent1_id: undefined, agent2_id: undefined, agent3_id: undefined },
+    checklistProgress: checklistProgress ?? null,
+  }
+}
 
 const SOURCE_LABELS: Record<string, string> = {
   cold_call: "Cold Call",
@@ -137,7 +183,7 @@ interface Agent {
 }
 
 interface DealTableProps {
-  deals: Deal[]
+  deals: MockDeal[]
   stages: StageOption[]
   dealType: string
   primaryFieldLabel: string
@@ -154,7 +200,7 @@ type SortKey = "primaryField" | "stage" | "updatedAt" | "price" | "borough" | "p
 type SortDir = "asc" | "desc"
 
 export function DealTable({
-  deals: initialDeals,
+  deals: rawDeals,
   stages,
   dealType,
   primaryFieldLabel,
@@ -178,6 +224,9 @@ export function DealTable({
     "tenant-rep": "tenant_rep",
   }
   const dealTypeKey = dealTypeMap[dealType] || (dealType as DealType)
+
+  // Convert MockDeal[] → Deal[] for internal display
+  const initialDeals = useMemo(() => rawDeals.map(toDeal), [rawDeals])
 
   // Core state
   const [deals, setDeals] = useState(initialDeals)

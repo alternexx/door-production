@@ -5,7 +5,7 @@ import { DealTable } from "./deal-table";
 import { DealModal } from "./deal-modal";
 import { useDealContext } from "@/lib/deal-context";
 import type { DealType } from "@/db/schema";
-import type { Deal, StageOption } from "./deal-table";
+import type { StageOption } from "./deal-table";
 import type { MockDeal } from "@/lib/mock-data";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import { toast } from "sonner";
 import { AGENT_COLORS } from "@/lib/tokens";
 
 function resolveAgentColor(agentId: string, agentName: string): string {
-  // 1. Custom color from team page shelf
   try {
     const custom = typeof window !== "undefined" ? localStorage.getItem("door-team-agent-colors") : null;
     if (custom) {
@@ -21,46 +20,12 @@ function resolveAgentColor(agentId: string, agentName: string): string {
       if (map[agentId]) return map[agentId];
     }
   } catch {}
-  // 2. Canonical color from tokens
   if (AGENT_COLORS[agentName]) return AGENT_COLORS[agentName];
-  // 3. Fallback
   return "#9ca3af";
 }
 
 interface PipelinePageProps {
   dealType: DealType;
-}
-
-// Map MockDeal → Deal (v2 shape expected by deal-table)
-function toDeal(d: MockDeal): Deal {
-  const checklistProgress = (d as unknown as { checklistProgress?: Deal["checklistProgress"] }).checklistProgress;
-  return {
-    id: d.id,
-    primaryField: d.title,
-    borough: d.borough ?? null,
-    price: d.price ? String(d.price) : null,
-    stage: d.stage.name,
-    stageColor: d.stage.color,
-    agents: (d.agents || []).filter(a => a.user?.name && a.user.name !== "[deleted]").map((a, i) => {
-      const agentId = a.userId || a.user?.id || "";
-      const agentName = a.user?.name || "Agent";
-      return {
-        id: agentId,
-        name: agentName,
-        color: resolveAgentColor(agentId, agentName),
-        position: i,
-      };
-    }),
-    notes: d.notes ?? null,
-    email: d.clientEmail ?? null,
-    phone: d.clientPhone ?? null,
-    updatedAt: d.updatedAt instanceof Date ? d.updatedAt.toISOString() : d.updatedAt,
-    createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
-    daysOnMarket: (d as unknown as { daysOnMarket?: number }).daysOnMarket ?? null,
-    isArchived: d.status === "archived",
-    rawData: { ...(d as unknown as Record<string, unknown>), agents: undefined, agent_ids: undefined, agent1_id: undefined, agent2_id: undefined, agent3_id: undefined },
-    checklistProgress: checklistProgress ?? null,
-  };
 }
 
 const DEAL_TYPE_CONFIG: Record<DealType, {
@@ -122,9 +87,6 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
 
   const stages = applyConfigOverrides(dbStages, dealTypeV2);
   const appStages = applyConfigOverrides(dbAppStages, "applications");
-
-  // Map to v2 Deal shape
-  const deals: Deal[] = rawDeals.map(toDeal);
 
   // Map stages to v2 StageOption shape
   const stageOptions: StageOption[] = stages.map((s) => ({
@@ -209,7 +171,7 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
       {/* Table */}
       <div className="flex-1 overflow-hidden px-4 pt-2 pb-3 min-h-0 flex flex-col">
         <DealTable
-          deals={deals}
+          deals={rawDeals}
           stages={stageOptions}
           dealType={dealTypeV2}
           primaryFieldLabel={config.primaryFieldLabel}
