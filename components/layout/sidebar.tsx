@@ -193,25 +193,29 @@ export function Sidebar() {
       </div>
 
       {/* User */}
-      <button
-        onClick={() => signOut({ redirectUrl: "/sign-in" })}
-        title="Sign out"
-        className={cn(
-          "py-3 border-t border-[var(--sidebar-border)] flex items-center gap-3 w-full hover:bg-black/10 dark:hover:bg-white/5 transition-colors",
-          effectiveCollapsed ? "justify-center px-0" : "px-4"
-        )}
-      >
-        {user?.imageUrl ? (
-          <img src={user.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover shrink-0" />
-        ) : (
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fm-amber)] text-white text-xs font-medium shrink-0">
-            {(user?.firstName ?? user?.emailAddresses[0]?.emailAddress ?? "?")[0].toUpperCase()}
-          </div>
-        )}
+      <div className={cn(
+        "py-3 border-t border-[var(--sidebar-border)] flex items-center gap-3",
+        effectiveCollapsed ? "justify-center px-0" : "px-4"
+      )}>
+        <button
+          onClick={() => signOut({ redirectUrl: "/sign-in" })}
+          title="Account settings"
+          className="shrink-0 rounded-full focus:outline-none hover:ring-2 hover:ring-[var(--fm-amber)]/50 transition-all"
+        >
+          {user?.imageUrl ? (
+            <img src={user.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fm-amber)] text-white text-xs font-medium">
+              {(user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress ?? "?")[0].toUpperCase()}
+            </div>
+          )}
+        </button>
         {!effectiveCollapsed && (
-          <span className="text-[13px] text-[var(--fm-text-secondary)] truncate">Sign out</span>
+          <span className="text-[13px] text-[var(--fm-text-secondary)] truncate">
+            {user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress ?? "Account"}
+          </span>
         )}
-      </button>
+      </div>
     </div>
   );
 

@@ -280,8 +280,8 @@ export function DealProvider({ children }: { children: ReactNode }) {
         field: "stage",
         oldValue: null,
         newValue: deal.stage.name,
-        changedById: CURRENT_AGENT.id,
-        changedByName: CURRENT_AGENT.name,
+        changedById: currentAgent.id,
+        changedByName: currentAgent.name,
         changedAt: new Date(),
       }],
     }));
@@ -307,11 +307,11 @@ export function DealProvider({ children }: { children: ReactNode }) {
         stageId: deal.stageId || deal.stage?.id,
         leaseStartDate: deal.leaseStartDate,
         leaseEndDate: deal.leaseEndDate,
-        createdBy: CURRENT_AGENT.id,
+        createdBy: currentAgent.id,
         agentIds: deal.agents?.map((a) => a.userId) ?? [],
       }),
     }).catch(console.error);
-  }, []);
+  }, [currentAgent]);
 
   const updateDeal = useCallback((dealType: DealType, dealId: string, updates: Partial<MockDeal>) => {
     // Optimistic update

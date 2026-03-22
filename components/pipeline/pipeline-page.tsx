@@ -221,7 +221,7 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
           agents={agentList}
           applicationStages={appStageOptions}
           currentUserId={currentAgent?.id}
-          isAdmin={true}
+          isAdmin={currentAgent?.role === "admin"}
           fullHeight
         />
       </div>
