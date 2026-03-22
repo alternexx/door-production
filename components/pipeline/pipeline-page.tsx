@@ -6,7 +6,7 @@ import { DealModal } from "./deal-modal";
 import { useDealContext } from "@/lib/deal-context";
 import type { DealType } from "@/db/schema";
 import type { StageOption } from "./deal-table";
-import type { MockDeal } from "@/lib/mock-data";
+import type { AppDeal } from "@/lib/mock-data";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -121,8 +121,8 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
         return;
       }
       const created = await res.json();
-      // Shape must match MockDeal exactly so toDeal() can map it correctly
-      const newDeal: MockDeal = {
+      // Shape must match AppDeal exactly so toDeal() can map it correctly
+      const newDeal: AppDeal = {
         ...created,
         createdAt: new Date(created.createdAt),
         updatedAt: new Date(created.updatedAt),
@@ -144,7 +144,7 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
   }, [dealType, addDeal]);
 
   const handleUpdateDeal = useCallback(async (id: string, data: Record<string, unknown>) => {
-    const updates: Partial<MockDeal> = {};
+    const updates: Partial<AppDeal> = {};
     if (data.primaryField) updates.title = data.primaryField as string;
     if (data.borough) updates.borough = data.borough as string;
     if (data.price !== undefined) updates.price = data.price ? Number(data.price) : undefined;

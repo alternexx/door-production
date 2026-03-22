@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { useDealContext } from "@/lib/deal-context";
-import { STAGES, type MockHistoryEntry } from "@/lib/mock-data";
+import { STAGES, type DealHistoryEntry } from "@/lib/mock-data";
 
 interface HistorySheetProps {
   open: boolean;
@@ -59,7 +59,7 @@ export function HistorySheet({
     );
   };
 
-  const renderEntry = (entry: MockHistoryEntry) => (
+  const renderEntry = (entry: DealHistoryEntry) => (
     <div
       key={entry.id}
       className="border-b border-[#e5e7eb] py-3 last:border-0"

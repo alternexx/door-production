@@ -5,7 +5,7 @@ dotenv.config({ path: ".env.local" });
 
 const sql = neon(process.env.DATABASE_URL!);
 
-// Mock agents matching lib/mock-data.ts MOCK_AGENTS
+// Seed agents
 const AGENTS = [
   { id: "00000000-0000-0000-0000-000000000001", clerkId: "clerk-1", email: "sarah@door.com", name: "Sarah Chen", role: "admin" },
   { id: "00000000-0000-0000-0000-000000000002", clerkId: "clerk-2", email: "mike@door.com", name: "Mike Rodriguez", role: "agent" },
@@ -14,7 +14,7 @@ const AGENTS = [
   { id: "00000000-0000-0000-0000-000000000005", clerkId: "clerk-5", email: "amanda@door.com", name: "Amanda Torres", role: "agent" },
 ];
 
-// Stage definitions matching lib/mock-data.ts STAGES exactly
+// Stage definitions
 interface StageDef {
   dealType: string;
   name: string;

@@ -2,14 +2,13 @@
 import { useEffect } from "react";
 import { useSettingsModal } from "@/context/settings-modal-context";
 import { useDealContext } from "@/lib/deal-context";
-import { X, Palette, Bell, Link2, Settings2, Users } from "lucide-react";
+import { X, Palette, Bell, Link2, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import PreferencesContent from "@/app/(dashboard)/settings/preferences/page";
 import NotificationsContent from "@/app/(dashboard)/settings/notifications/page";
 import ConnectionsContent from "@/app/(dashboard)/settings/connections/page";
 import ConfigurationContent from "@/app/(dashboard)/settings/configuration/page";
-import TeamContent from "@/app/(dashboard)/settings/team/page";
 
 const nav = [
   {
@@ -23,7 +22,6 @@ const nav = [
   {
     section: "Admin",
     items: [
-      { id: "team" as const, label: "Team", icon: Users },
       { id: "configuration" as const, label: "Configuration", icon: Settings2 },
     ],
   },
@@ -107,7 +105,6 @@ export function SettingsModal() {
           {activePanel === "notifications" && <NotificationsContent />}
           {activePanel === "connections" && <ConnectionsContent />}
           {activePanel === "configuration" && <ConfigurationContent />}
-          {activePanel === "team" && <TeamContent />}
         </main>
       </div>
     </>

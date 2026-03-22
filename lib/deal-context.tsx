@@ -2,27 +2,24 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import {
-  MOCK_AGENTS,
   STAGES,
-  INITIAL_DEALS,
-  CURRENT_AGENT,
-  generateMockHistory,
-  type MockDeal,
-  type MockStage,
-  type MockAgent,
-  type MockHistoryEntry,
+  EMPTY_AGENT,
+  type AppDeal,
+  type AppStage,
+  type AppAgent,
+  type DealHistoryEntry,
 } from "./mock-data";
 import type { DealType } from "@/db/schema";
 import { AGENT_COLORS } from "@/lib/tokens";
 
 // ── Context shape ──────────────────────────────────────────────────
 interface DealContextValue {
-  agents: MockAgent[];
-  currentAgent: MockAgent;
-  getStages: (dealType: DealType) => MockStage[];
-  getDeals: (dealType: DealType) => MockDeal[];
-  addDeal: (deal: MockDeal) => void;
-  updateDeal: (dealType: DealType, dealId: string, updates: Partial<MockDeal>) => void;
+  agents: AppAgent[];
+  currentAgent: AppAgent;
+  getStages: (dealType: DealType) => AppStage[];
+  getDeals: (dealType: DealType) => AppDeal[];
+  addDeal: (deal: AppDeal) => void;
+  updateDeal: (dealType: DealType, dealId: string, updates: Partial<AppDeal>) => void;
   removeDeal: (dealType: DealType, dealId: string) => void;
   archiveDeal: (
     dealType: DealType,
@@ -30,8 +27,8 @@ interface DealContextValue {
     reason: string,
     archiveStage?: { id: string; name: string; color: string },
   ) => void;
-  getHistory: (dealId: string) => MockHistoryEntry[];
-  addHistoryEntry: (entry: MockHistoryEntry) => void;
+  getHistory: (dealId: string) => DealHistoryEntry[];
+  addHistoryEntry: (entry: DealHistoryEntry) => void;
   isLoading: boolean;
   reloadDeal: (dealType: DealType, dealId: string) => Promise<void>;
 }
@@ -45,10 +42,10 @@ export function useDealContext() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
-function dbDealToMock(d: Record<string, unknown>, stages: Record<DealType, MockStage[]>): MockDeal {
+function dbDealToMock(d: Record<string, unknown>, stages: Record<DealType, AppStage[]>): AppDeal {
   const dealType = d.dealType as DealType;
   const stageList = stages[dealType] ?? [];
-  const dbStage = (d.stage as Partial<MockStage> | undefined) ?? undefined;
+  const dbStage = (d.stage as Partial<AppStage> | undefined) ?? undefined;
   const dbStageId = (dbStage?.id as string | undefined) ?? (d.stageId as string | undefined);
   const dbStageName = dbStage?.name;
   const dbStageColor = dbStage?.color;
@@ -57,15 +54,15 @@ function dbDealToMock(d: Record<string, unknown>, stages: Record<DealType, MockS
   const matchedStageByName = dbStageName ? stageList.find((s) => s.name === dbStageName) : undefined;
   const fallbackStage = stageList.find((s) => s.id === dbStageId) ?? stageList[0];
   const baseStage = matchedStageByName ?? fallbackStage;
-  const stageObj: MockStage = {
+  const stageObj: AppStage = {
     ...baseStage,
     id: dbStageId ?? baseStage.id,
     name: dbStageName ?? baseStage.name,
     color: dbStageColor ?? baseStage.color,
   };
-  const agentRows = (d.agents as { user: MockAgent }[] | undefined) ?? [];
+  const agentRows = (d.agents as { user: AppAgent }[] | undefined) ?? [];
 
-  const baseDeal: MockDeal = {
+  const baseDeal: AppDeal = {
     id: d.id as string,
     dealType,
     title: (d.title as string) ?? "",
@@ -88,7 +85,7 @@ function dbDealToMock(d: Record<string, unknown>, stages: Record<DealType, MockS
     showingAgentId: (d.showingAgentId as string | null) ?? null,
     commissionData: d.commissionData ?? null,
     showingScheduledAt: (d.showingScheduledAt as string | null) ?? null,
-    createdBy: (d.createdBy as string) ?? CURRENT_AGENT.id,
+    createdBy: (d.createdBy as string) ?? EMPTY_AGENT.id,
     createdAt: new Date(d.createdAt as string),
     updatedAt: new Date(d.updatedAt as string),
     stage: stageObj,
@@ -100,7 +97,7 @@ function dbDealToMock(d: Record<string, unknown>, stages: Record<DealType, MockS
       removedAt: null,
       user: a.user,
     })),
-    creator: (d.creator as MockAgent) ?? CURRENT_AGENT,
+    creator: (d.creator as AppAgent) ?? EMPTY_AGENT,
     clientName: undefined,
     clientEmail: undefined,
     clientPhone: undefined,
@@ -109,12 +106,12 @@ function dbDealToMock(d: Record<string, unknown>, stages: Record<DealType, MockS
   return {
     ...baseDeal,
     checklistProgress: d.checklistProgress,
-  } as MockDeal;
+  } as AppDeal;
 }
 
 // ── Provider ───────────────────────────────────────────────────────
 export function DealProvider({ children }: { children: ReactNode }) {
-  const [stagesByType, setStagesByType] = useState<Record<DealType, MockStage[]>>(() => ({
+  const [stagesByType, setStagesByType] = useState<Record<DealType, AppStage[]>>(() => ({
     rental: [...STAGES.rental],
     seller: [...STAGES.seller],
     buyer: [...STAGES.buyer],
@@ -122,26 +119,14 @@ export function DealProvider({ children }: { children: ReactNode }) {
     tenant_rep: [...STAGES.tenant_rep],
   }));
 
-  const [dealsByType, setDealsByType] = useState<Record<DealType, MockDeal[]>>(() => ({
-    rental: [...INITIAL_DEALS.rental],
-    seller: [...INITIAL_DEALS.seller],
-    buyer: [...INITIAL_DEALS.buyer],
-    application: [...INITIAL_DEALS.application],
-    tenant_rep: [...INITIAL_DEALS.tenant_rep],
+  const [dealsByType, setDealsByType] = useState<Record<DealType, AppDeal[]>>(() => ({
+    rental: [], seller: [], buyer: [], application: [], tenant_rep: [],
   }));
 
-  const [historyByDeal, setHistoryByDeal] = useState<Record<string, MockHistoryEntry[]>>(() => {
-    const map: Record<string, MockHistoryEntry[]> = {};
-    for (const type of Object.keys(INITIAL_DEALS) as DealType[]) {
-      for (const deal of INITIAL_DEALS[type]) {
-        map[deal.id] = generateMockHistory(deal);
-      }
-    }
-    return map;
-  });
+  const [historyByDeal, setHistoryByDeal] = useState<Record<string, DealHistoryEntry[]>>({});
 
-  const [agentList, setAgentList] = useState<MockAgent[]>(MOCK_AGENTS);
-  const [currentAgent, setCurrentAgent] = useState<MockAgent>(CURRENT_AGENT);
+  const [agentList, setAgentList] = useState<AppAgent[]>([]);
+  const [currentAgent, setCurrentAgent] = useState<AppAgent>(EMPTY_AGENT);
   const [isLoading, setIsLoading] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
 
@@ -165,7 +150,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
           })
         );
 
-        const fetchedStagesByType: Record<DealType, MockStage[]> = {
+        const fetchedStagesByType: Record<DealType, AppStage[]> = {
           rental: [...STAGES.rental],
           seller: [...STAGES.seller],
           buyer: [...STAGES.buyer],
@@ -191,7 +176,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
 
         const hasData = results.some((r) => r && r.dealsData && r.dealsData.length > 0);
         if (hasData) {
-          const byType: Record<DealType, MockDeal[]> = {
+          const byType: Record<DealType, AppDeal[]> = {
             rental: [], seller: [], buyer: [], application: [], tenant_rep: [],
           };
           for (const result of results) {
@@ -220,7 +205,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
             return AGENT_COLORS[name] || "#9ca3af";
           }
 
-          const realAgents: MockAgent[] = agentsData.map(u => ({
+          const realAgents: AppAgent[] = agentsData.map(u => ({
             id: u.id,
             clerkId: u.clerkId,
             email: u.email,
@@ -266,7 +251,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
   const getStages = useCallback((dealType: DealType) => stagesByType[dealType], [stagesByType]);
   const getDeals = useCallback((dealType: DealType) => dealsByType[dealType], [dealsByType]);
 
-  const addDeal = useCallback((deal: MockDeal) => {
+  const addDeal = useCallback((deal: AppDeal) => {
     // Optimistic update
     setDealsByType((prev) => ({
       ...prev,
@@ -314,7 +299,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
     }).catch(console.error);
   }, [currentAgent]);
 
-  const updateDeal = useCallback((dealType: DealType, dealId: string, updates: Partial<MockDeal>) => {
+  const updateDeal = useCallback((dealType: DealType, dealId: string, updates: Partial<AppDeal>) => {
     // Optimistic update
     setDealsByType((prev) => ({
       ...prev,
@@ -325,7 +310,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
 
     // Build DB-safe patch (exclude relation objects)
     const { stage, agents, creator, agent_ids, ...dbUpdates } = updates as Record<string, unknown>;
-    if (stage) (dbUpdates as Record<string, unknown>).stageId = (stage as MockStage).id;
+    if (stage) (dbUpdates as Record<string, unknown>).stageId = (stage as AppStage).id;
     if (agent_ids) (dbUpdates as Record<string, unknown>).agentIds = agent_ids;
 
     // Persist to DB (fire and forget)
@@ -387,7 +372,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
 
   const getHistory = useCallback((dealId: string) => historyByDeal[dealId] ?? [], [historyByDeal]);
 
-  const addHistoryEntry = useCallback((entry: MockHistoryEntry) => {
+  const addHistoryEntry = useCallback((entry: DealHistoryEntry) => {
     setHistoryByDeal((prev) => ({
       ...prev,
       [entry.dealId]: [entry, ...(prev[entry.dealId] ?? [])],
@@ -405,7 +390,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
       const stagesData = stagesRes.ok ? await stagesRes.json() : null;
       if (!dealsData) return;
 
-      const fetchedStages: MockStage[] = (stagesData || []).map((s: { id: string; name: string; color: string; orderIndex: number; isClosedWon?: boolean; isClosedLost?: boolean }) => ({
+      const fetchedStages: AppStage[] = (stagesData || []).map((s: { id: string; name: string; color: string; orderIndex: number; isClosedWon?: boolean; isClosedLost?: boolean }) => ({
         id: s.id, name: s.name, color: s.color, orderIndex: s.orderIndex,
         isClosedWon: s.isClosedWon ?? false, isClosedLost: s.isClosedLost ?? false,
         dealType,
@@ -414,7 +399,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
       const rawDeals = [...(dealsData.deals || []), ...(dealsData.archived || [])];
       const allStages = fetchedStages.length ? fetchedStages : STAGES[dealType];
 
-      const mapped: MockDeal[] = rawDeals.map((d: { id: string; title: string; address: string; unit?: string; borough: string; neighborhood?: string; zip?: string; buildingId?: string; price?: string; status: string; source?: string; notes?: string; stageId?: string; stage?: { id: string; name: string; color: string }; agents?: Array<{ userId?: string; user?: { id: string; name: string } }>; createdBy?: string; creator?: MockAgent; updatedAt?: string; createdAt?: string }) => {
+      const mapped: AppDeal[] = rawDeals.map((d: { id: string; title: string; address: string; unit?: string; borough: string; neighborhood?: string; zip?: string; buildingId?: string; price?: string; status: string; source?: string; notes?: string; stageId?: string; stage?: { id: string; name: string; color: string }; agents?: Array<{ userId?: string; user?: { id: string; name: string } }>; createdBy?: string; creator?: AppAgent; updatedAt?: string; createdAt?: string }) => {
         const stageObj = allStages.find(s => s.id === d.stageId) || allStages.find(s => s.name === d.stage?.name) || allStages[0];
         return {
           id: d.id,
@@ -444,7 +429,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
           updatedAt: d.updatedAt ? new Date(d.updatedAt) : new Date(),
           createdAt: d.createdAt ? new Date(d.createdAt) : new Date(),
           rawData: d,
-        } as unknown as MockDeal;
+        } as unknown as AppDeal;
       });
 
       setDealsByType(prev => ({ ...prev, [dealType]: mapped }));

@@ -1,7 +1,7 @@
 import type { DealType } from "@/db/schema";
 
 // ── Mock Agent type (simplified User) ──────────────────────────────
-export interface MockAgent {
+export interface AppAgent {
   id: string;
   clerkId: string;
   email: string;
@@ -15,7 +15,7 @@ export interface MockAgent {
 }
 
 // ── Mock Stage type ────────────────────────────────────────────────
-export interface MockStage {
+export interface AppStage {
   id: string;
   dealType: DealType;
   name: string;
@@ -28,7 +28,7 @@ export interface MockStage {
 }
 
 // ── Mock Deal ──────────────────────────────────────────────────────
-export interface MockDeal {
+export interface AppDeal {
   id: string;
   dealType: DealType;
   title: string;
@@ -55,9 +55,9 @@ export interface MockDeal {
   createdAt: Date;
   updatedAt: Date;
   // Relations
-  stage: MockStage;
-  agents: { id: string; dealId: string; userId: string; assignedAt: Date; removedAt: Date | null; user: MockAgent }[];
-  creator: MockAgent;
+  stage: AppStage;
+  agents: { id: string; dealId: string; userId: string; assignedAt: Date; removedAt: Date | null; user: AppAgent }[];
+  creator: AppAgent;
   // Extra fields for local state
   clientName?: string;
   clientEmail?: string;
@@ -66,7 +66,7 @@ export interface MockDeal {
 }
 
 // ── Mock History Entry ─────────────────────────────────────────────
-export interface MockHistoryEntry {
+export interface DealHistoryEntry {
   id: string;
   dealId: string;
   dealType: DealType;
@@ -79,76 +79,14 @@ export interface MockHistoryEntry {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
-let _idCounter = 1000;
-function uid(): string {
-  return `mock-${++_idCounter}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function daysAgo(n: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d;
 }
 
-function hoursAgo(n: number): Date {
-  const d = new Date();
-  d.setHours(d.getHours() - n);
-  return d;
-}
-
-// ── MOCK AGENTS ────────────────────────────────────────────────────
-export const MOCK_AGENTS: MockAgent[] = [
-  {
-    id: "agent-1",
-    clerkId: "clerk_1",
-    email: "mromero@hhnyc.com",
-    name: "Mark Romero",
-    role: "admin",
-    isActive: true,
-    initials: "MR",
-    color: "#d97706",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "agent-2",
-    clerkId: "clerk_2",
-    email: "jsmith@hhnyc.com",
-    name: "Jordan Smith",
-    role: "agent",
-    isActive: true,
-    initials: "JS",
-    color: "#2563eb",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "agent-3",
-    clerkId: "clerk_3",
-    email: "agarcia@hhnyc.com",
-    name: "Alex Garcia",
-    role: "agent",
-    isActive: true,
-    initials: "AG",
-    color: "#16a34a",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "agent-4",
-    clerkId: "clerk_4",
-    email: "tlee@hhnyc.com",
-    name: "Taylor Lee",
-    role: "agent",
-    isActive: true,
-    initials: "TL",
-    color: "#9333ea",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
-
-export const CURRENT_AGENT: MockAgent = {
+// ── Blank agent placeholder (used as initial state before API loads) ──
+export const EMPTY_AGENT: AppAgent = {
   id: "",
   clerkId: "",
   email: "",
@@ -162,7 +100,7 @@ export const CURRENT_AGENT: MockAgent = {
 };
 
 // ── STAGE DEFINITIONS ──────────────────────────────────────────────
-function makeStages(dealType: DealType, defs: { name: string; color: string; isClosedWon?: boolean; isClosedLost?: boolean }[]): MockStage[] {
+function makeStages(dealType: DealType, defs: { name: string; color: string; isClosedWon?: boolean; isClosedLost?: boolean }[]): AppStage[] {
   return defs.map((d, i) => ({
     id: `stage-${dealType}-${i}`,
     dealType,
@@ -176,7 +114,7 @@ function makeStages(dealType: DealType, defs: { name: string; color: string; isC
   }));
 }
 
-export const STAGES: Record<DealType, MockStage[]> = {
+export const STAGES: Record<DealType, AppStage[]> = {
   rental: makeStages("rental", [
     { name: "Run Comps", color: "#6366f1" },
     { name: "Not Started", color: "#94a3b8" },
@@ -280,164 +218,3 @@ export const ARCHIVE_REASONS: Record<DealType, { label: string; outcome: "won" |
   ],
 };
 
-// ── MOCK DEAL FACTORY ──────────────────────────────────────────────
-function makeDealAgents(dealId: string, agentIds: string[]): MockDeal["agents"] {
-  return agentIds.map((agentId) => {
-    const agent = MOCK_AGENTS.find((a) => a.id === agentId)!;
-    return {
-      id: uid(),
-      dealId,
-      userId: agentId,
-      assignedAt: daysAgo(10),
-      removedAt: null,
-      user: agent,
-    };
-  });
-}
-
-interface DealSeed {
-  title: string;
-  address: string;
-  unit?: string;
-  borough: string;
-  neighborhood?: string;
-  price?: number;
-  source?: string;
-  notes?: string;
-  stageIndex: number;
-  agentIds: string[];
-  daysOld: number;
-  updatedHoursAgo: number;
-  clientName?: string;
-  clientEmail?: string;
-  clientPhone?: string;
-}
-
-function makeDeal(dealType: DealType, seed: DealSeed): MockDeal {
-  const stages = STAGES[dealType];
-  const stage = stages[seed.stageIndex];
-  const id = uid();
-  return {
-    id,
-    dealType,
-    title: seed.title,
-    address: seed.address,
-    unit: seed.unit ?? null,
-    borough: seed.borough,
-    neighborhood: seed.neighborhood ?? null,
-    zip: null,
-    price: seed.price ?? null,
-    status: "active",
-    source: seed.source ?? null,
-    notes: seed.notes ?? null,
-    stageId: stage.id,
-    leaseStartDate: null,
-    leaseEndDate: null,
-    listedAt: daysAgo(seed.daysOld),
-    archivedAt: null,
-    archiveReason: null,
-    showingAgentId: null,
-    commissionData: null,
-    createdBy: MOCK_AGENTS[0].id,
-    createdAt: daysAgo(seed.daysOld),
-    updatedAt: hoursAgo(seed.updatedHoursAgo),
-    stage,
-    agents: makeDealAgents(id, seed.agentIds),
-    creator: MOCK_AGENTS[0],
-    clientName: seed.clientName,
-    clientEmail: seed.clientEmail,
-    clientPhone: seed.clientPhone,
-  };
-}
-
-// ── MOCK DEALS PER TYPE ────────────────────────────────────────────
-export const INITIAL_DEALS: Record<DealType, MockDeal[]> = {
-  rental: [],
-  seller: [],
-  buyer: [],
-  application: [],
-  tenant_rep: [],
-};
-
-// ── MOCK HISTORY ENTRIES ───────────────────────────────────────────
-export function generateMockHistory(deal: MockDeal): MockHistoryEntry[] {
-  const entries: MockHistoryEntry[] = [];
-  const stages = STAGES[deal.dealType];
-
-  // Stage creation
-  entries.push({
-    id: uid(),
-    dealId: deal.id,
-    dealType: deal.dealType,
-    field: "stage",
-    oldValue: null,
-    newValue: stages[0].name,
-    changedById: deal.createdBy,
-    changedByName: deal.creator.name,
-    changedAt: deal.createdAt,
-  });
-
-  // If not on first stage, add intermediate stage changes
-  const currentStageIdx = stages.findIndex((s) => s.id === deal.stageId);
-  for (let i = 1; i <= currentStageIdx; i++) {
-    const agent = MOCK_AGENTS[i % MOCK_AGENTS.length];
-    entries.push({
-      id: uid(),
-      dealId: deal.id,
-      dealType: deal.dealType,
-      field: "stage",
-      oldValue: stages[i - 1].name,
-      newValue: stages[i].name,
-      changedById: agent.id,
-      changedByName: agent.name,
-      changedAt: new Date(deal.createdAt.getTime() + i * 86400000),
-    });
-  }
-
-  // Price change
-  if (deal.price) {
-    entries.push({
-      id: uid(),
-      dealId: deal.id,
-      dealType: deal.dealType,
-      field: "price",
-      oldValue: `$${(deal.price * 1.1).toLocaleString()}`,
-      newValue: `$${deal.price.toLocaleString()}`,
-      changedById: deal.agents[0]?.userId ?? deal.createdBy,
-      changedByName: deal.agents[0]?.user.name ?? deal.creator.name,
-      changedAt: hoursAgo(48),
-    });
-  }
-
-  // Notes update
-  if (deal.notes) {
-    entries.push({
-      id: uid(),
-      dealId: deal.id,
-      dealType: deal.dealType,
-      field: "notes",
-      oldValue: null,
-      newValue: deal.notes,
-      changedById: deal.createdBy,
-      changedByName: deal.creator.name,
-      changedAt: hoursAgo(24),
-    });
-  }
-
-  // Agent assignment
-  if (deal.agents.length > 1) {
-    entries.push({
-      id: uid(),
-      dealId: deal.id,
-      dealType: deal.dealType,
-      field: "agents",
-      oldValue: deal.agents[0].user.name,
-      newValue: deal.agents.map((a) => a.user.name).join(", "),
-      changedById: deal.createdBy,
-      changedByName: deal.creator.name,
-      changedAt: hoursAgo(72),
-    });
-  }
-
-  return entries.sort((a, b) => b.changedAt.getTime() - a.changedAt.getTime());
-}

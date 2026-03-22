@@ -17,15 +17,15 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Search, Filter, Columns3, Archive } from "lucide-react";
-import type { MockStage, MockAgent } from "@/lib/mock-data";
+import type { AppStage, AppAgent } from "@/lib/mock-data";
 import type { ColumnConfig } from "@/lib/types";
 import { BOROUGHS, SOURCES } from "@/lib/types";
 
 interface ToolbarProps {
   search: string;
   onSearchChange: (value: string) => void;
-  stages: MockStage[];
-  users: MockAgent[];
+  stages: AppStage[];
+  users: AppAgent[];
   filters: Record<string, string>;
   onFiltersChange: (filters: Record<string, string>) => void;
   columns: ColumnConfig[];

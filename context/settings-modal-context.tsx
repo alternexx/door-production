@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useState } from "react";
 
-type SettingsPanel = "preferences" | "notifications" | "connections" | "configuration" | "team";
+type SettingsPanel = "preferences" | "notifications" | "connections" | "configuration";
 
 interface SettingsModalContextValue {
   open: boolean;

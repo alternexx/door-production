@@ -17,12 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { MockAgent } from "@/lib/mock-data";
+import type { AppAgent } from "@/lib/mock-data";
 
 interface ShowingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  users: MockAgent[];
+  users: AppAgent[];
   onConfirm: (date: string, agentId: string) => void;
 }
 

@@ -81,7 +81,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { useDealContext } from "@/lib/deal-context"
 import type { DealType } from "@/db/schema"
-import type { MockDeal } from "@/lib/mock-data"
+import type { AppDeal } from "@/lib/mock-data"
 import { AGENT_COLORS } from "@/lib/tokens"
 import { toast } from "sonner"
 
@@ -97,8 +97,8 @@ function resolveAgentColor(agentId: string, agentName: string): string {
   return "#9ca3af"
 }
 
-// Map MockDeal → Deal (display shape expected by deal-table internals)
-function toDeal(d: MockDeal): Deal {
+// Map AppDeal → Deal (display shape expected by deal-table internals)
+function toDeal(d: AppDeal): Deal {
   const checklistProgress = (d as unknown as { checklistProgress?: Deal["checklistProgress"] }).checklistProgress
   return {
     id: d.id,
@@ -183,7 +183,7 @@ interface Agent {
 }
 
 interface DealTableProps {
-  deals: MockDeal[]
+  deals: AppDeal[]
   stages: StageOption[]
   dealType: string
   primaryFieldLabel: string
@@ -225,7 +225,7 @@ export function DealTable({
   }
   const dealTypeKey = dealTypeMap[dealType] || (dealType as DealType)
 
-  // Convert MockDeal[] → Deal[] for internal display
+  // Convert AppDeal[] → Deal[] for internal display
   const initialDeals = useMemo(() => rawDeals.map(toDeal), [rawDeals])
 
   // Core state
@@ -1284,7 +1284,7 @@ export function DealTable({
         return now
       }
       // Fetch fresh timestamps directly from the API data via rawData
-      // rawData is the MockDeal which has Date objects
+      // rawData is the AppDeal which has Date objects
       const updatedMs = toMs(deal.rawData?.updatedAt) || toMs(deal.updatedAt)
       const createdMs = toMs(deal.rawData?.createdAt) || toMs(deal.createdAt)
       const daysSinceMs = (ms: number) => Math.floor((now - ms) / 86400000)
