@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { Search, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -130,9 +129,8 @@ export function AgentShelf({ open, onClose, agents, selectedIds, onToggle, ancho
               <p className="text-xs text-muted-foreground text-center py-3">No agents found</p>
             )}
           </div>
-          <div className="flex items-center justify-between px-3 py-2 border-t border-border">
+          <div className="px-3 py-2 border-t border-border">
             <span className="text-[11px] text-muted-foreground">{selectedIds.length} selected</span>
-            <Button size="sm" onClick={handleClose} className="h-7 text-xs">Done</Button>
           </div>
         </motion.div>
       )}
