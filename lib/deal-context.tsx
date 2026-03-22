@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import {
-  STAGES,
   EMPTY_AGENT,
   type AppDeal,
   type AppStage,
@@ -112,11 +111,7 @@ function dbDealToApp(d: Record<string, unknown>, stages: Record<DealType, AppSta
 // ── Provider ───────────────────────────────────────────────────────
 export function DealProvider({ children }: { children: ReactNode }) {
   const [stagesByType, setStagesByType] = useState<Record<DealType, AppStage[]>>(() => ({
-    rental: [...STAGES.rental],
-    seller: [...STAGES.seller],
-    buyer: [...STAGES.buyer],
-    application: [...STAGES.application],
-    tenant_rep: [...STAGES.tenant_rep],
+    rental: [], seller: [], buyer: [], application: [], tenant_rep: [],
   }));
 
   const [dealsByType, setDealsByType] = useState<Record<DealType, AppDeal[]>>(() => ({
@@ -151,11 +146,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
         );
 
         const fetchedStagesByType: Record<DealType, AppStage[]> = {
-          rental: [...STAGES.rental],
-          seller: [...STAGES.seller],
-          buyer: [...STAGES.buyer],
-          application: [...STAGES.application],
-          tenant_rep: [...STAGES.tenant_rep],
+          rental: [], seller: [], buyer: [], application: [], tenant_rep: [],
         };
         for (const result of results) {
           if (!result?.stagesData) continue;
@@ -386,7 +377,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
       if (!res.ok) return;
       const d = await res.json();
 
-      const allStages = stagesByType[dealType] ?? STAGES[dealType];
+      const allStages = stagesByType[dealType] ?? [];
       const updated = dbDealToApp(d, { ...stagesByType, [dealType]: allStages });
 
       setDealsByType(prev => ({
