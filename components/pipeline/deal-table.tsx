@@ -168,7 +168,7 @@ export function DealTable({
   fullHeight = false,
 }: DealTableProps) {
   const { mode: agentDisplayMode } = useAgentDisplay()
-  const { updateDeal, removeDeal, archiveDeal, addDeal, addHistoryEntry, getStages, currentAgent } = useDealContext()
+  const { updateDeal, removeDeal, archiveDeal, addDeal, addHistoryEntry, getStages, currentAgent, reloadDeal } = useDealContext()
 
   // Map v2 plural dealType string → DealType key for context calls
   const dealTypeMap: Record<string, DealType> = {
@@ -1506,6 +1506,7 @@ export function DealTable({
                   open={true}
                   onClose={() => {
                     handleInlineSave(deal.id, { agent_ids: agentShelfSelectedIds })
+                    setTimeout(() => reloadDeal(dealTypeKey, deal.id), 800)
                     setAgentShelfOpen(false)
                     setAgentShelfDealId(null)
                   }}

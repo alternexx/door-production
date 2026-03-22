@@ -33,6 +33,7 @@ interface DealContextValue {
   getHistory: (dealId: string) => MockHistoryEntry[];
   addHistoryEntry: (entry: MockHistoryEntry) => void;
   isLoading: boolean;
+  reloadDeal: (dealType: DealType, dealId: string) => Promise<void>;
 }
 
 const DealContext = createContext<DealContextValue | null>(null);
@@ -393,6 +394,18 @@ export function DealProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const reloadDeal = useCallback(async (dealType: DealType, dealId: string) => {
+    try {
+      const res = await fetch(`/api/deals/${dealId}`);
+      if (!res.ok) return;
+      const updated = await res.json();
+      setDealsByType((prev) => ({
+        ...prev,
+        [dealType]: prev[dealType].map((d) => d.id === dealId ? { ...d, ...updated, agents: updated.agents || d.agents } : d),
+      }));
+    } catch { /* silent */ }
+  }, []);
+
   return (
     <DealContext.Provider value={{
       agents: agentList,
@@ -406,6 +419,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
       getHistory,
       addHistoryEntry,
       isLoading,
+      reloadDeal,
     }}>
       {children}
     </DealContext.Provider>
