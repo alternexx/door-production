@@ -12,6 +12,7 @@ import {
 import { eq, and, inArray } from "drizzle-orm";
 import type { DealType } from "@/db/schema";
 import { buildDealChecklist, normalizeChecklistTemplateItems } from "@/lib/checklists";
+import { getCurrentUser } from "@/lib/auth";
 
 type DealInsert = typeof deals.$inferInsert;
 
@@ -140,12 +141,42 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const currentUser = await getCurrentUser();
+
     const body = await req.json();
-    const { agentIds, ...dealData } = body;
+    // modal sends agent_ids (snake_case) — accept both
+    const agentIds: string[] = body.agentIds ?? body.agent_ids ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { agentIds: _a, agent_ids: _b, id: _id, ...dealData } = body;
     const normalizedDealData = normalizeDealPayload(dealData);
 
+    const safeData = normalizedDealData as DealInsert;
+
+    // Safe defaults for NOT NULL columns
+    if (!safeData.borough) safeData.borough = "";
+    if (!safeData.address) safeData.address = (safeData.title as string) || "";
+    if (!safeData.title) safeData.title = (safeData.address as string) || "Untitled";
+
+    // Resolve stage: modal sends stage name string, need UUID
+    const rawStage = (safeData as unknown as Record<string, unknown>).stage as string | undefined;
+    if (rawStage) {
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (UUID_RE.test(rawStage)) {
+        safeData.stageId = rawStage;
+      } else {
+        const [found] = await db
+          .select({ id: pipelineStages.id })
+          .from(pipelineStages)
+          .where(and(eq(pipelineStages.name, rawStage), eq(pipelineStages.dealType, safeData.dealType)))
+          .limit(1);
+        if (found) safeData.stageId = found.id;
+      }
+      delete (safeData as unknown as Record<string, unknown>).stage;
+    }
+
     const [newDeal] = await db.insert(deals).values({
-      ...(normalizedDealData as DealInsert),
+      ...safeData,
+      ...(currentUser ? { createdBy: currentUser.id } : {}),
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();

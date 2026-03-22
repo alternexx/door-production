@@ -147,42 +147,38 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
   }));
 
   const handleSaveNewDeal = useCallback(async (data: Record<string, unknown>) => {
-    const firstStage = stages[0];
-    const now = new Date();
-    const newDeal: MockDeal = {
-      id: `deal-${Date.now()}`,
-      dealType,
-      title: (data.primaryField as string) || (data.title as string) || "Untitled",
-      address: (data.address as string) || "",
-      unit: (data.unit as string) || null,
-      borough: (data.borough as string) || "",
-      neighborhood: (data.neighborhood as string) || null,
-      zip: null,
-      buildingId: (data.buildingId as string) || null,
-      price: data.price ? Number(data.price) : null,
-      status: "active",
-      source: (data.source as string) || null,
-      notes: (data.notes as string) || null,
-      stageId: firstStage.id,
-      leaseStartDate: null,
-      leaseEndDate: null,
-      listedAt: null,
-      archivedAt: null,
-      archiveReason: null,
-      showingAgentId: null,
-      commissionData: null,
-      createdBy: "system",
-      createdAt: now,
-      updatedAt: now,
-      stage: firstStage,
-      agents: [],
-      creator: { id: "system", clerkId: "system", email: "", name: "System", role: "admin", isActive: true, initials: "SY", color: "#888", createdAt: now, updatedAt: now },
-      clientEmail: (data.email as string) || undefined,
-      clientPhone: (data.phone as string) || undefined,
-    };
-    addDeal(newDeal);
-    toast.success("Deal created");
-  }, [dealType, stages, addDeal]);
+    try {
+      const res = await fetch("/api/deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, dealType }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Failed to create deal");
+        return;
+      }
+      const created = await res.json();
+      // Normalise agents from API response for UI
+      const agentsForUI = (created.agents ?? [])
+        .filter((da: { removedAt?: string | null; user?: { id: string; name: string } | null }) => da.user && !da.removedAt)
+        .map((da: { user: { id: string; name: string } }) => ({
+          id: da.user.id,
+          name: da.user.name,
+          color: resolveAgentColor(da.user.id, da.user.name),
+        }));
+      const newDeal: MockDeal = {
+        ...created,
+        agents: agentsForUI,
+        createdAt: new Date(created.createdAt),
+        updatedAt: new Date(created.updatedAt),
+      };
+      addDeal(newDeal);
+      toast.success("Deal created");
+    } catch {
+      toast.error("Failed to create deal");
+    }
+  }, [dealType, addDeal]);
 
   const handleUpdateDeal = useCallback(async (id: string, data: Record<string, unknown>) => {
     const updates: Partial<MockDeal> = {};
