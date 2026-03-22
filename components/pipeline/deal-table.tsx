@@ -626,42 +626,35 @@ export function DealTable({
 
   // Context-based handlers
   const handleSaveNewDeal = async (data: Record<string, unknown>) => {
-    const ctxStages = getStages(dealTypeKey)
-    const firstStage = ctxStages[0]
-    const newDeal = {
-      id: `deal-${Date.now()}`,
-      dealType: dealTypeKey,
-      title: (data.primaryField as string) || (data.property as string) || (data.client as string) || (data.applicant as string) || "Untitled",
-      address: (data.address as string) || "",
-      unit: (data.unit as string) || null,
-      borough: (data.borough as string) || "",
-      neighborhood: (data.neighborhood as string) || null,
-      zip: null,
-      buildingId: (data.buildingId as string) || null,
-      price: data.price ? Number(String(data.price).replace(/[^0-9.]/g, "")) : null,
-      status: "active" as const,
-      source: (data.source as string) || null,
-      notes: (data.notes as string) || null,
-      stageId: firstStage.id,
-      leaseStartDate: null,
-      leaseEndDate: null,
-      listedAt: new Date(),
-      archivedAt: null,
-      archiveReason: null,
-      showingAgentId: null,
-      commissionData: null,
-      createdBy: currentAgent.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      stage: firstStage,
-      agents: [],
-      creator: currentAgent,
-      clientName: (data.clientName as string) || undefined,
-      clientEmail: (data.email as string) || undefined,
-      clientPhone: (data.phone as string) || undefined,
+    try {
+      const res = await fetch("/api/deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, dealType: dealTypeKey }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || "Failed to create deal")
+        return
+      }
+      const created = await res.json()
+      const newDeal: AppDeal = {
+        ...created,
+        createdAt: new Date(created.createdAt),
+        updatedAt: new Date(created.updatedAt),
+        listedAt: created.listedAt ? new Date(created.listedAt) : null,
+        archivedAt: created.archivedAt ? new Date(created.archivedAt) : null,
+        stage: created.stage,
+        agents: (created.agents ?? []).filter(
+          (a: { removedAt?: string | null }) => !a.removedAt
+        ),
+        creator: created.creator ?? null,
+      }
+      addDeal(newDeal)
+      toast.success("Deal created")
+    } catch {
+      toast.error("Failed to create deal")
     }
-    addDeal(newDeal)
-    toast.success("Deal created")
   }
 
   const handleSaveEditDeal = async (data: Record<string, unknown>) => {
