@@ -283,7 +283,7 @@ export async function GET() {
     showingsToday: showingsTodayResult[0]?.count ?? 0,
     tasksOpenTotal: tasksOpenTotalResult[0]?.count ?? 0,
     tasksDueToday: tasksDueTodayResult[0]?.count ?? 0,
-    agents: allUsers.map((u) => ({
+    agents: allUsers.filter(u => u.name !== "[deleted]").map((u) => ({
       id: u.id,
       name: u.name,
       role: u.role,

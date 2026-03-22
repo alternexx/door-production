@@ -82,7 +82,8 @@ function relativeTime(dateStr: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function presenceDot(lastActiveAt: string | null) {
+function presenceDot(lastActiveAt: string | null, isActive: boolean) {
+  if (!isActive) return "bg-gray-300";
   if (!lastActiveAt) return "bg-gray-400";
   const mins = (Date.now() - new Date(lastActiveAt).getTime()) / 60000;
   if (mins < 2) return "bg-green-500";
@@ -90,8 +91,9 @@ function presenceDot(lastActiveAt: string | null) {
   return "bg-gray-400";
 }
 
-function presenceLabel(lastActiveAt: string | null) {
-  if (!lastActiveAt) return "offline";
+function presenceLabel(lastActiveAt: string | null, isActive: boolean) {
+  if (!isActive) return "not activated";
+  if (!lastActiveAt) return "never signed in";
   const mins = Math.floor(
     (Date.now() - new Date(lastActiveAt).getTime()) / 60000
   );
@@ -284,15 +286,15 @@ export default function DashboardPage() {
             {/* Team */}
             <div className="bg-card border rounded-xl p-4 space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team</p>
-              {data.agents.filter((a) => a.isActive).map((a) => (
+              {data.agents.map((a) => (
                 <div key={a.id} className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full shrink-0 ${presenceDot(a.lastActiveAt)}`} />
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${presenceDot(a.lastActiveAt, a.isActive)}`} />
                   <span className="text-xs font-medium text-foreground truncate flex-1">{a.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{presenceLabel(a.lastActiveAt)}</span>
+                  <span className={`text-[10px] ${!a.isActive ? "text-muted-foreground/50 italic" : "text-muted-foreground"}`}>{presenceLabel(a.lastActiveAt, a.isActive)}</span>
                   <span className="text-[10px] text-muted-foreground ml-2">{data.agentDealCounts[a.id] ?? 0} deals</span>
                 </div>
               ))}
-              {data.agents.filter(a => a.isActive).length === 0 && (
+              {data.agents.length === 0 && (
                 <p className="text-xs text-muted-foreground">No agents</p>
               )}
             </div>
