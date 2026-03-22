@@ -713,10 +713,13 @@ export function DealTable({
 
   const handleInlineSave = async (dealId: string, data: Record<string, unknown>) => {
     const updates: Record<string, unknown> = { ...data }
+
     if (Array.isArray(data.agent_ids)) {
       const normalizedIds = (data.agent_ids as unknown[])
         .map((id) => parseAgentId(id))
         .filter((id): id is string => id !== null)
+
+      // Optimistic update
       setDeals((prev) =>
         prev.map((deal) =>
           deal.id === dealId
@@ -733,7 +736,16 @@ export function DealTable({
             : deal
         )
       )
+
+      // Persist to API
+      fetch(`/api/deals/${dealId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentIds: normalizedIds }),
+      }).catch(() => toast.error("Failed to save agent change"))
+      return
     }
+
     // Map primaryField keys to title
     const config = getDealTypeConfig(dealType)
     const primaryKey = config?.primaryField
@@ -742,18 +754,6 @@ export function DealTable({
     }
     if (data.price !== undefined) updates.price = data.price ? Number(String(data.price).replace(/[^0-9.]/g, "")) : null
     updateDeal(dealTypeKey, dealId, updates)
-    const changedField = Object.keys(data)[0] || "field"
-    addHistoryEntry({
-      id: `hist-${Date.now()}`,
-      dealId,
-      dealType: dealTypeKey,
-      field: changedField,
-      oldValue: null,
-      newValue: String(Object.values(data)[0] ?? ""),
-      changedById: currentAgent.id,
-      changedByName: currentAgent.name,
-      changedAt: new Date(),
-    })
   }
 
   const handleUnarchive = async (deal: Deal) => {
