@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Palette, Bell, Link2, Settings2, Users } from "lucide-react";
+import { Palette, Bell, Link2, Settings2 } from "lucide-react";
 import { useEffect } from "react";
 import { useDealContext } from "@/lib/deal-context";
 
@@ -14,7 +14,6 @@ const accountItems = [
 ];
 
 const adminItems = [
-  { type: "link", label: "Team", href: "/settings/team", icon: Users },
   { type: "link", label: "Configuration", href: "/settings/configuration", icon: Settings2 },
 ];
 
@@ -31,7 +30,7 @@ export default function SettingsLayout({
 
   useEffect(() => {
     if (currentAgent && currentAgent.role !== "admin") {
-      if (pathname === "/settings/team" || pathname === "/settings/configuration") {
+      if (pathname === "/settings/configuration") {
         router.replace("/settings/preferences");
       }
     }
