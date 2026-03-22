@@ -323,8 +323,9 @@ export function DealProvider({ children }: { children: ReactNode }) {
     }));
 
     // Build DB-safe patch (exclude relation objects)
-    const { stage, agents, creator, ...dbUpdates } = updates as Record<string, unknown>;
+    const { stage, agents, creator, agent_ids, ...dbUpdates } = updates as Record<string, unknown>;
     if (stage) (dbUpdates as Record<string, unknown>).stageId = (stage as MockStage).id;
+    if (agent_ids) (dbUpdates as Record<string, unknown>).agentIds = agent_ids;
 
     // Persist to DB (fire and forget)
     if (Object.keys(dbUpdates).length) {
