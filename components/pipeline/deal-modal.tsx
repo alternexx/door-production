@@ -1377,7 +1377,7 @@ export function DealModal({
               if (!selectedTask) return
               setTaskCompleting(true)
               try {
-                await fetch(`/api/tasks/${selectedTask.id}/complete`, { method: "POST" })
+                await fetch(`/api/tasks/${selectedTask.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete" }) })
                 setSelectedTask(null)
                 setTaskRefreshKey(k => k + 1)
               } finally { setTaskCompleting(false) }
@@ -1386,7 +1386,7 @@ export function DealModal({
               if (!selectedTask) return
               setTaskArchiving(true)
               try {
-                await fetch(`/api/tasks/${selectedTask.id}/archive`, { method: "POST" })
+                await fetch(`/api/tasks/${selectedTask.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "archive" }) })
                 setSelectedTask(null)
                 setTaskRefreshKey(k => k + 1)
               } finally { setTaskArchiving(false) }

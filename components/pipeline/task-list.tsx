@@ -102,7 +102,7 @@ export function TaskList({
   const handleComplete = async (task: Task) => {
     setCompleting(task.id)
     try {
-      await fetch(`/api/tasks/${task.id}/complete`, { method: "POST" })
+      await fetch(`/api/tasks/${task.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete" }) })
       await fetchTasks()
       onTaskSelect?.(null)
     } finally { setCompleting(null) }
@@ -111,7 +111,7 @@ export function TaskList({
   const handleArchive = async (task: Task) => {
     setArchiving(task.id)
     try {
-      await fetch(`/api/tasks/${task.id}/archive`, { method: "POST" })
+      await fetch(`/api/tasks/${task.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "archive" }) })
       await fetchTasks()
       onTaskSelect?.(null)
     } finally { setArchiving(null) }

@@ -101,6 +101,51 @@ export async function PATCH(
         changes.push(`priority: ${existing.priority} → ${nextPriority}`);
       }
     }
+    // Support action shortcuts: "complete" | "reopen" | "archive"
+    if (body.action === "complete" || body.action === "reopen" || body.action === "archive") {
+      const actionMap = {
+        complete: "completed" as const,
+        reopen: "todo" as const,
+        archive: "completed" as const,
+      };
+      const action: keyof typeof actionMap = body.action;
+      const nextStatus = actionMap[action];
+      updateData.status = nextStatus;
+      if (nextStatus === "completed") {
+        updateData.completedAt = now;
+        updateData.completedBy = currentUser.id;
+      } else {
+        updateData.completedAt = null;
+        updateData.completedBy = null;
+      }
+      const historyAction = body.action === "complete" ? "completed" : body.action === "reopen" ? "reopened" : "cancelled";
+      const historyLabel = body.action === "complete" ? "Completed" : body.action === "reopen" ? "Reopened" : "Archived";
+      await db.insert(taskHistory).values({
+        taskId: id,
+        action: historyAction,
+        oldValue: existing.status,
+        newValue: nextStatus,
+        changedBy: currentUser.id,
+      });
+      if (deal) {
+        await db.insert(dealHistory).values({
+          dealId: deal.id,
+          dealType: deal.dealType,
+          field: "task",
+          oldValue: null,
+          newValue: `${historyLabel} task: ${existing.title}`,
+          changedById: currentUser.id,
+          changedByName: currentUser.name,
+        });
+      }
+      await db.update(tasks).set(updateData).where(eq(tasks.id, id));
+      const full = await db.query.tasks.findFirst({
+        where: eq(tasks.id, id),
+        with: { assignee: true, deal: true },
+      });
+      return NextResponse.json(full ? normalizeTaskRow(full) : { success: true });
+    }
+
     if (body.status !== undefined) {
       const nextStatus = normalizeStatus(body.status);
       if (nextStatus !== normalizeStatus(existing.status)) {

@@ -58,7 +58,7 @@ export function MyTasksWidget() {
   }, [])
 
   const toggleComplete = async (taskId: string) => {
-    await fetch(`/api/tasks/${taskId}/complete`, { method: "POST" })
+    await fetch(`/api/tasks/${taskId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete" }) })
     await fetchTasks()
   }
 
