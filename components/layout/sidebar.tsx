@@ -21,7 +21,7 @@ import {
 import { useState } from "react";
 import { useSidebar } from "@/context/sidebar-context";
 import { useSettingsModal } from "@/context/settings-modal-context";
-import { useClerk, useUser } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 
 const pipelineItems = [
   { label: "Rentals", href: "/pipeline/rentals", icon: Home },
@@ -77,7 +77,7 @@ export function Sidebar() {
   const [peeking, setPeeking] = useState(false);
   const { collapsed, setCollapsed } = useSidebar();
   const { openSettings } = useSettingsModal();
-  const { signOut } = useClerk();
+
   const { user } = useUser();
 
   const isActive = (href: string) => {
@@ -197,19 +197,7 @@ export function Sidebar() {
         "py-3 border-t border-[var(--sidebar-border)] flex items-center gap-3",
         effectiveCollapsed ? "justify-center px-0" : "px-4"
       )}>
-        <button
-          onClick={() => signOut({ redirectUrl: "/sign-in" })}
-          title="Account settings"
-          className="shrink-0 rounded-full focus:outline-none hover:ring-2 hover:ring-[var(--fm-amber)]/50 transition-all"
-        >
-          {user?.imageUrl ? (
-            <img src={user.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--fm-amber)] text-white text-xs font-medium">
-              {(user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress ?? "?")[0].toUpperCase()}
-            </div>
-          )}
-        </button>
+        <UserButton />
         {!effectiveCollapsed && (
           <span className="text-[13px] text-[var(--fm-text-secondary)] truncate">
             {user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress ?? "Account"}
