@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Palette, Bell, Link2, Settings2, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useDealContext } from "@/lib/deal-context";
 
 const accountItems = [
   { type: "link", label: "Preferences", href: "/settings/preferences", icon: Palette },
@@ -24,21 +25,17 @@ export default function SettingsLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [roleLoaded, setRoleLoaded] = useState(false);
-  const [userName, setUserName] = useState("");
+  const { currentAgent } = useDealContext();
+  const isAdmin = currentAgent?.role === "admin";
+  const userName = currentAgent?.name ?? "";
 
   useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(data => {
-      if (data.role === "admin") setIsAdmin(true);
-      if (data.name) setUserName(data.name);
-      setRoleLoaded(true);
-      // Redirect agents away from admin pages
-      if (data.role !== "admin" && (pathname === "/settings/team" || pathname === "/settings/configuration")) {
+    if (currentAgent && currentAgent.role !== "admin") {
+      if (pathname === "/settings/team" || pathname === "/settings/configuration") {
         router.replace("/settings/preferences");
       }
-    }).catch(() => { setRoleLoaded(true); });
-  }, [pathname, router]);
+    }
+  }, [currentAgent, pathname, router]);
 
   return (
     <div className="h-full flex">
@@ -77,8 +74,8 @@ export default function SettingsLayout({
             </nav>
           </div>
 
-          {/* Admin section — only visible to admins, hidden until role confirmed */}
-          {roleLoaded && isAdmin && (
+          {/* Admin section — only visible to admins */}
+          {isAdmin && (
             <div className="mb-6">
               <div className="px-2 mb-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--fm-text-secondary)]/60">Admin</span>
