@@ -58,7 +58,7 @@ function toDeal(d: MockDeal): Deal {
     createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : d.createdAt,
     daysOnMarket: (d as unknown as { daysOnMarket?: number }).daysOnMarket ?? null,
     isArchived: d.status === "archived",
-    rawData: d as unknown as Record<string, unknown>,
+    rawData: { ...(d as unknown as Record<string, unknown>), agents: undefined, agent_ids: undefined, agent1_id: undefined, agent2_id: undefined, agent3_id: undefined },
     checklistProgress: checklistProgress ?? null,
   };
 }

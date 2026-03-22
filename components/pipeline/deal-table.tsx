@@ -322,7 +322,9 @@ export function DealTable({
     pushId(raw.agent2_id)
     pushId(raw.agent3_id)
 
+    const seen = new Set<string>()
     return ids
+      .filter(id => { if (seen.has(id)) return false; seen.add(id); return true; })
       .map((id, i) => {
         const found = agents.find((a) => a.id === id)
         if (!found) return null
@@ -1506,7 +1508,6 @@ export function DealTable({
                   open={true}
                   onClose={() => {
                     handleInlineSave(deal.id, { agent_ids: agentShelfSelectedIds })
-                    setTimeout(() => reloadDeal(dealTypeKey, deal.id), 800)
                     setAgentShelfOpen(false)
                     setAgentShelfDealId(null)
                   }}
