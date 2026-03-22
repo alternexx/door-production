@@ -39,7 +39,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       .then((r) => r.json())
       .then((data) => {
         if (data.unauthorized) router.replace("/sign-in");
-        if (data.needsSetup) router.replace("/setup");
+        if (data.needsSetup) router.replace("/who-are-you");
       })
       .catch(() => {});
   }, [router]);
