@@ -666,27 +666,51 @@ export function DealTable({
 
   const handleSaveEditDeal = async (data: Record<string, unknown>) => {
     if (!editingDeal) return
-    const updates: Record<string, unknown> = { ...data }
+
+    // Build API payload
+    const apiPayload: Record<string, unknown> = {}
+    if (data.primaryField) apiPayload.title = data.primaryField as string
+    if (data.borough) apiPayload.borough = data.borough
+    if (data.price !== undefined) apiPayload.price = data.price ? Number(String(data.price).replace(/[^0-9.]/g, "")) : null
+    if (data.notes !== undefined) apiPayload.notes = data.notes
+    if (data.source !== undefined) apiPayload.source = data.source || null
     if (data.stage) {
       const ctxStages = getStages(dealTypeKey)
       const found = ctxStages.find((s) => s.name === data.stage || s.id === data.stage)
-      if (found) updates.stage = found
+      if (found) apiPayload.stageId = found.id
     }
-    if (data.price !== undefined) updates.price = data.price ? Number(String(data.price).replace(/[^0-9.]/g, "")) : null
-    if (data.primaryField) updates.title = data.primaryField as string
-    updateDeal(dealTypeKey, editingDeal.id, updates)
-    addHistoryEntry({
-      id: `hist-${Date.now()}`,
-      dealId: editingDeal.id,
-      dealType: dealTypeKey,
-      field: "edit",
-      oldValue: null,
-      newValue: "Deal updated via modal",
-      changedById: currentAgent.id,
-      changedByName: currentAgent.name,
-      changedAt: new Date(),
-    })
-    toast.success("Deal updated")
+    // Always send agentIds so the API can update them
+    const agentIds = Array.isArray(data.agent_ids) ? data.agent_ids as string[] : editingDeal.agents.map((a) => a.id)
+    apiPayload.agentIds = agentIds
+
+    try {
+      const res = await fetch(`/api/deals/${editingDeal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(apiPayload),
+      })
+      if (!res.ok) {
+        toast.error("Failed to save deal")
+        return
+      }
+      const updated = await res.json()
+      // Update local state from API response
+      const stateUpdates: Record<string, unknown> = { ...apiPayload }
+      if (data.stage) {
+        const ctxStages = getStages(dealTypeKey)
+        const found = ctxStages.find((s) => s.name === data.stage || s.id === data.stage)
+        if (found) stateUpdates.stage = found
+      }
+      // Rebuild agents from API response
+      if (updated.agents) {
+        stateUpdates.agents = updated.agents
+          .filter((a: { removedAt?: string | null; user?: { name?: string } }) => !a.removedAt && a.user?.name && a.user.name !== "[deleted]")
+      }
+      updateDeal(dealTypeKey, editingDeal.id, stateUpdates)
+      toast.success("Deal saved")
+    } catch {
+      toast.error("Failed to save deal")
+    }
   }
 
   const handleDeleteDeal = async (id: string) => {

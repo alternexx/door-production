@@ -204,7 +204,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await db.insert(dealHistory).values(historyRows);
     }
 
-    return NextResponse.json(updated);
+    // Refetch with relations so agents/stage are included in response
+    const full = await db.query.deals.findFirst({
+      where: eq(deals.id, id),
+      with: { stage: true, agents: { with: { user: true }, where: (da, { isNull }) => isNull(da.removedAt) }, creator: true },
+    });
+
+    return NextResponse.json(full);
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });
