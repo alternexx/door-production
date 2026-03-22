@@ -70,9 +70,10 @@ export default function WhoAreYouPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#0f0f0f]">
       <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#1a1a1a] p-8 shadow-2xl">
         <div className="flex justify-center mb-6">
-          <span className="text-2xl font-bold tracking-widest text-[#ba7517]">
-            DOOR
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <img src="/fm-logo.png" alt="FM" className="h-10 w-auto object-contain" />
+            <span className="text-[9px] text-gray-500 opacity-40">powered by door</span>
+          </div>
         </div>
 
         <h1 className="text-xl font-semibold text-white text-center mb-1">

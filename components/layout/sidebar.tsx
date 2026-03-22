@@ -96,8 +96,9 @@ export function Sidebar() {
         effectiveCollapsed ? "justify-center px-0" : "px-4 justify-between"
       )}>
         {!effectiveCollapsed && (
-          <Link href="/pipeline/rentals" className="text-lg font-bold tracking-tight text-[var(--sidebar-foreground)]">
-            DOOR
+          <Link href="/pipeline/rentals" className="flex flex-col items-start gap-0">
+            <img src="/fm-logo.png" alt="FM" className="h-7 w-auto object-contain" />
+            <span className="text-[9px] text-[var(--fm-text-secondary)] opacity-40 leading-none -mt-0.5">powered by door</span>
           </Link>
         )}
         <button

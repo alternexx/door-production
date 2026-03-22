@@ -7,7 +7,7 @@ import { ThemeInitializer } from "@/components/theme-initializer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DOOR — Real Estate Operations",
+  title: "FM — Real Estate Operations",
   description: "Real estate team operations platform",
 };
 
