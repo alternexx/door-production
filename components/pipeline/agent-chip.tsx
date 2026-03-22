@@ -99,10 +99,10 @@ export function AgentChip({ agent, mode = "initials", className, onRemove, onCli
 
 export const AgentChipDark = AgentChip
 
-export function AgentAddButton({ onClick }: { onClick: () => void }) {
+export function AgentAddButton({ onClick }: { onClick: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
   return (
     <motion.button
-      onClick={(e) => { e.stopPropagation(); onClick() }}
+      onClick={(e) => { e.stopPropagation(); onClick(e) }}
       className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-accent"
       style={{ border: "1.5px dashed var(--border)", color: "var(--muted-foreground)" }}
       title="Add agent"

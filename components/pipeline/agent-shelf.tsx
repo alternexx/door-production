@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -19,16 +20,31 @@ interface AgentShelfProps {
   agents: Agent[]
   selectedIds: string[]
   onToggle: (id: string) => void
-  anchorRef?: React.RefObject<HTMLElement>
+  anchorEl?: HTMLElement | null
 }
 
-export function AgentShelf({ open, onClose, agents, selectedIds, onToggle }: AgentShelfProps) {
+export function AgentShelf({ open, onClose, agents, selectedIds, onToggle, anchorEl }: AgentShelfProps) {
   const [search, setSearch] = useState("")
+  const [pos, setPos] = useState({ top: 0, left: 0 })
   const ref = useRef<HTMLDivElement>(null)
+
   const handleClose = () => {
     setSearch("")
     onClose()
   }
+
+  // Position relative to anchor element
+  useEffect(() => {
+    if (!open) return
+    if (anchorEl) {
+      const rect = anchorEl.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      setPos({
+        top: spaceBelow > 320 ? rect.bottom + window.scrollY + 4 : rect.top + window.scrollY - 324,
+        left: rect.left + window.scrollX,
+      })
+    }
+  }, [open, anchorEl])
 
   // Close on outside click
   useEffect(() => {
@@ -46,16 +62,24 @@ export function AgentShelf({ open, onClose, agents, selectedIds, onToggle }: Age
     a.name.toLowerCase().includes(search.toLowerCase())
   )
 
-  return (
+  if (!open || typeof document === "undefined") return null
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
           ref={ref}
-          initial={{ opacity: 0, x: 8, scale: 0.97 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: 8, scale: 0.97 }}
+          initial={{ opacity: 0, y: -4, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -4, scale: 0.97 }}
           transition={{ type: "spring", stiffness: 420, damping: 26 }}
-          className="absolute right-0 top-0 z-50 w-[240px] rounded-xl border bg-popover shadow-xl"
+          style={{
+            position: "absolute",
+            top: pos.top,
+            left: pos.left,
+            zIndex: 9999,
+          }}
+          className="w-[240px] rounded-xl border border-border bg-card shadow-xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-3 pt-3 pb-2">
@@ -97,7 +121,7 @@ export function AgentShelf({ open, onClose, agents, selectedIds, onToggle }: Age
                   >
                     {agent.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                   </span>
-                  <span className="flex-1 text-sm">{agent.name}</span>
+                  <span className="flex-1 text-sm text-foreground">{agent.name}</span>
                   {isSelected && <Check className="h-3.5 w-3.5 text-[var(--fm-amber)]" />}
                 </button>
               )
@@ -106,12 +130,13 @@ export function AgentShelf({ open, onClose, agents, selectedIds, onToggle }: Age
               <p className="text-xs text-muted-foreground text-center py-3">No agents found</p>
             )}
           </div>
-          <div className="flex items-center justify-between px-3 py-2 border-t">
+          <div className="flex items-center justify-between px-3 py-2 border-t border-border">
             <span className="text-[11px] text-muted-foreground">{selectedIds.length} selected</span>
             <Button size="sm" onClick={handleClose} className="h-7 text-xs">Done</Button>
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

@@ -213,6 +213,7 @@ export function DealTable({
   const [agentShelfOpen, setAgentShelfOpen] = useState(false)
   const [agentShelfDealId, setAgentShelfDealId] = useState<string | null>(null)
   const [agentShelfSelectedIds, setAgentShelfSelectedIds] = useState<string[]>([])
+  const [agentShelfAnchor, setAgentShelfAnchor] = useState<HTMLElement | null>(null)
   const [promoteModalOpen, setPromoteModalOpen] = useState(false)
   const [promotingDeal, setPromotingDeal] = useState<Deal | null>(null)
   const [applicationModalOpen, setApplicationModalOpen] = useState(false)
@@ -1493,11 +1494,12 @@ export function DealTable({
                 />
               </motion.div>
             ))}
-            <div className="relative">
-              <AgentAddButton onClick={() => {
+            <div className="relative" ref={(el) => { if (el && agentShelfDealId === deal.id) (window as unknown as Record<string, unknown>)[`agentAddBtn_${deal.id}`] = el }}>
+              <AgentAddButton onClick={(e) => {
                 setAgentShelfDealId(deal.id)
                 setAgentShelfSelectedIds(resolvedAgents.map(a => a.id))
                 setAgentShelfOpen(prev => !prev || agentShelfDealId !== deal.id)
+                setAgentShelfAnchor(e.currentTarget as HTMLElement)
               }} />
               {agentShelfOpen && agentShelfDealId === deal.id && (
                 <AgentShelf
@@ -1512,6 +1514,7 @@ export function DealTable({
                   onToggle={(id) => setAgentShelfSelectedIds(prev =>
                     prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
                   )}
+                  anchorEl={agentShelfAnchor}
                 />
               )}
             </div>
