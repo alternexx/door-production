@@ -185,36 +185,4 @@ export const STAGES: Record<DealType, AppStage[]> = {
   ]),
 };
 
-// ── ARCHIVE REASONS ────────────────────────────────────────────────
-export const ARCHIVE_REASONS: Record<DealType, { label: string; outcome: "won" | "lost" }[]> = {
-  rental: [
-    { label: "Rented / Moved In", outcome: "won" },
-    { label: "Tenant Backed Out", outcome: "lost" },
-    { label: "Owner Backed Out", outcome: "lost" },
-    { label: "No Longer Available", outcome: "lost" },
-  ],
-  seller: [
-    { label: "Sold / Closed", outcome: "won" },
-    { label: "Listing Withdrawn", outcome: "lost" },
-    { label: "Listing Expired", outcome: "lost" },
-    { label: "Owner Backed Out", outcome: "lost" },
-  ],
-  buyer: [
-    { label: "Purchased / Closed", outcome: "won" },
-    { label: "Buyer Backed Out", outcome: "lost" },
-    { label: "Buyer Unresponsive", outcome: "lost" },
-    { label: "Budget Changed", outcome: "lost" },
-  ],
-  application: [
-    { label: "Moved In / Closed", outcome: "won" },
-    { label: "Application Rejected", outcome: "lost" },
-    { label: "Applicant Withdrew", outcome: "lost" },
-    { label: "Rental Backed Out", outcome: "lost" },
-  ],
-  tenant_rep: [
-    { label: "Deal Closed", outcome: "won" },
-    { label: "Client Backed Out", outcome: "lost" },
-    { label: "Client Unresponsive", outcome: "lost" },
-  ],
-};
 
