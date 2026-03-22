@@ -37,6 +37,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, linked: true });
   }
 
-  // Not pre-invited — do nothing (they'll hit the /not-invited gate)
+  // Not pre-invited — do nothing (requireUser() will reject them)
   return NextResponse.json({ ok: true, linked: false });
 }
