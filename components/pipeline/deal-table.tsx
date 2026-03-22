@@ -81,7 +81,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { useDealContext } from "@/lib/deal-context"
 import type { DealType } from "@/db/schema"
-import { CURRENT_AGENT } from "@/lib/mock-data"
 import { toast } from "sonner"
 
 const SOURCE_LABELS: Record<string, string> = {
