@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useSettingsModal } from "@/context/settings-modal-context";
+import { useDealContext } from "@/lib/deal-context";
 import { X, Palette, Bell, Link2, Settings2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,8 @@ const nav = [
 
 export function SettingsModal() {
   const { open, activePanel, closeSettings, setPanel } = useSettingsModal();
+  const { currentAgent } = useDealContext();
+  const isAdmin = currentAgent?.role === "admin";
 
   useEffect(() => {
     if (!open) return;
@@ -65,7 +68,7 @@ export function SettingsModal() {
             </button>
           </div>
           <div className="flex-1 p-2 space-y-4 overflow-y-auto">
-            {nav.map((section) => (
+            {nav.filter(section => section.section !== "Admin" || isAdmin).map((section) => (
               <div key={section.section}>
                 <div className="px-2 mb-1">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
