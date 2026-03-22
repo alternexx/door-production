@@ -25,17 +25,19 @@ export default function SettingsLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [roleLoaded, setRoleLoaded] = useState(false);
   const [userName, setUserName] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/me").then(r => r.json()).then(data => {
       if (data.role === "admin") setIsAdmin(true);
       if (data.name) setUserName(data.name);
+      setRoleLoaded(true);
       // Redirect agents away from admin pages
       if (data.role !== "admin" && (pathname === "/settings/team" || pathname === "/settings/configuration")) {
         router.replace("/settings/preferences");
       }
-    }).catch(() => {});
+    }).catch(() => { setRoleLoaded(true); });
   }, [pathname, router]);
 
   return (
@@ -75,8 +77,8 @@ export default function SettingsLayout({
             </nav>
           </div>
 
-          {/* Admin section — only visible to admins */}
-          {isAdmin && (
+          {/* Admin section — only visible to admins, hidden until role confirmed */}
+          {roleLoaded && isAdmin && (
             <div className="mb-6">
               <div className="px-2 mb-2">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--fm-text-secondary)]/60">Admin</span>
