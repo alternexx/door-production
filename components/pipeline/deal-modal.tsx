@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   Dialog,
   DialogContent,
@@ -112,12 +112,6 @@ export function DealModal({
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
-  const [discardConfirm, setDiscardConfirm] = useState(false)
-  const [autoSaved, setAutoSaved] = useState(false)
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const autoSaveEnabled = isEdit && (typeof window !== "undefined"
-    ? localStorage.getItem("door-autosave") !== "false"
-    : true)
   const [initialForm, setInitialForm] = useState<Record<string, unknown>>({})
   const [initialAgents, setInitialAgents] = useState<string[]>([])
   const [buildings, setBuildings] = useState<BuildingOption[]>([])
@@ -235,7 +229,6 @@ export function DealModal({
       setSelectedAgentIds(initialAgentIds || [])
     }
     setDeleteConfirm(false)
-    setDiscardConfirm(false)
     setIsDirty(false)
     closeAllShelves()
     setAgentSearch("")
@@ -325,34 +318,15 @@ export function DealModal({
     return { base: address, unit: null }
   }, [])
 
-  const handleClose = useCallback(() => {
-    if (isDirty && isEdit && !autoSaveEnabled) {
-      setDiscardConfirm(true)
-    } else {
-      onClose()
+  const handleClose = useCallback(async () => {
+    if (isEdit && isDirty) {
+      const payload: Record<string, unknown> = { ...form, agent_ids: selectedAgentIds }
+      if (payload.source === "") payload.source = null
+      try { await onSave(payload) } catch { /* silent */ }
     }
-  }, [isDirty, isEdit, onClose, autoSaveEnabled])
+    onClose()
+  }, [isEdit, isDirty, form, selectedAgentIds, onSave, onClose])
 
-  // Autosave: debounce 1.5s after dirty
-  useEffect(() => {
-    if (!autoSaveEnabled || !isDirty) return
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-    autoSaveTimerRef.current = setTimeout(async () => {
-      if (!isDirty) return
-      setSaving(true)
-      try {
-        const payload: Record<string, unknown> = { ...form, agent_ids: selectedAgentIds }
-        if (payload.source === "") payload.source = null
-        await onSave(payload)
-        setIsDirty(false)
-        setAutoSaved(true)
-        setTimeout(() => setAutoSaved(false), 2000)
-      } catch { /* silent */ } finally {
-        setSaving(false)
-      }
-    }, 1500)
-    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }
-  }, [isDirty, form, selectedAgentIds, autoSaveEnabled])
 
   const handleAddressCommitted = useCallback(
     (address: string) => {
@@ -530,13 +504,11 @@ export function DealModal({
     return `${days} days ago`
   }
 
-  const handleSave = async () => {
+  const handleCreate = async () => {
     setSaving(true)
     try {
       const payload: Record<string, unknown> = { ...form, agent_ids: selectedAgentIds }
-      if (payload.source === "") {
-        payload.source = null
-      }
+      if (payload.source === "") payload.source = null
       await onSave(payload)
       onClose()
     } catch {
@@ -1071,21 +1043,15 @@ export function DealModal({
         )}
       </div>
       <div className="flex items-center gap-2">
-        {/* Autosave indicator */}
-        {autoSaveEnabled && isEdit && (
-          <span className={`text-xs transition-opacity duration-500 ${autoSaved ? "text-green-600 dark:text-green-400 opacity-100" : saving ? "text-muted-foreground opacity-100" : "opacity-0"}`}>
-            {saving ? "Saving…" : "Saved"}
-          </span>
-        )}
-        {(!autoSaveEnabled || !isEdit) && (
+        {!isEdit && (
           <Button
             size="sm"
-            onClick={handleSave}
+            onClick={handleCreate}
             disabled={saving}
             className="bg-[var(--fm-amber)] hover:bg-[var(--fm-amber)]/90 text-white"
           >
             {saving && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
-            {isEdit ? "Save Changes" : "Create Deal"}
+            Create Deal
           </Button>
         )}
       </div>
@@ -1622,30 +1588,6 @@ export function DealModal({
       </DialogContent>
     </Dialog>
 
-    {/* Discard confirm dialog */}
-    {discardConfirm && (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/40" onClick={() => setDiscardConfirm(false)} />
-        <div className="relative bg-background border border-border rounded-xl shadow-xl p-6 w-[340px] space-y-4">
-          <h3 className="text-[15px] font-semibold">Unsaved changes</h3>
-          <p className="text-[13px] text-muted-foreground">You have unsaved changes. Save before closing?</p>
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              onClick={() => { setDiscardConfirm(false); setIsDirty(false); onClose(); }}
-              className="px-4 py-2 text-[13px] rounded-md border border-border hover:bg-muted transition-colors"
-            >
-              Discard
-            </button>
-            <button
-              onClick={async () => { setDiscardConfirm(false); await handleSave(); }}
-              className="px-4 py-2 text-[13px] rounded-md bg-[var(--fm-amber)] text-white font-medium hover:bg-[var(--fm-amber)]/90 transition-colors"
-            >
-              Save Changes
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
   </>
   )
 }
