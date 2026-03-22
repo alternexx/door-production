@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 import type { StageOption } from "./deal-table"
 
@@ -22,17 +23,23 @@ export function StageDropdown({
   disabled = false,
 }: StageDropdownProps) {
   const [open, setOpen] = useState(false)
-  const [flipUp, setFlipUp] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0, flipUp: false })
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
+
     const trigger = triggerRef.current
     if (trigger) {
       const rect = trigger.getBoundingClientRect()
       const spaceBelow = window.innerHeight - rect.bottom
-      setFlipUp(spaceBelow < 200)
+      const flipUp = spaceBelow < 220
+      setPosition({
+        top: flipUp ? rect.top + window.scrollY : rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        flipUp,
+      })
     }
 
     const handleClickOutside = (e: MouseEvent) => {
@@ -50,11 +57,45 @@ export function StageDropdown({
   }, [open])
 
   const handleSelect = (stage: string) => {
-    if (stage !== currentStage) {
-      onSelect(stage)
-    }
+    if (stage !== currentStage) onSelect(stage)
     setOpen(false)
   }
+
+  const dropdown = open && typeof document !== "undefined" ? createPortal(
+    <div
+      ref={dropdownRef}
+      style={{
+        position: "absolute",
+        top: position.flipUp ? undefined : position.top,
+        bottom: position.flipUp ? window.innerHeight - (position.top) + 4 : undefined,
+        left: position.left,
+        zIndex: 9999,
+      }}
+      className="min-w-[200px] rounded-lg border bg-popover shadow-lg py-1"
+    >
+      {stages
+        .filter((s) => !s.name.toLowerCase().includes("archive"))
+        .map((stage) => (
+          <button
+            key={stage.name}
+            onClick={() => handleSelect(stage.name)}
+            className={cn(
+              "w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accent transition-colors",
+              stage.name === currentStage && "font-medium"
+            )}
+          >
+            <span
+              className="h-2.5 w-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: stage.color }}
+            />
+            <span style={{ color: stage.name === currentStage ? stage.color : undefined }}>
+              {stage.name}
+            </span>
+          </button>
+        ))}
+    </div>,
+    document.body
+  ) : null
 
   return (
     <div className="relative inline-block">
@@ -68,9 +109,9 @@ export function StageDropdown({
         )}
         style={(() => {
           try {
-            const r = parseInt(stageColor.slice(1,3),16)
-            const g = parseInt(stageColor.slice(3,5),16)
-            const b = parseInt(stageColor.slice(5,7),16)
+            const r = parseInt(stageColor.slice(1, 3), 16)
+            const g = parseInt(stageColor.slice(3, 5), 16)
+            const b = parseInt(stageColor.slice(5, 7), 16)
             return {
               backgroundColor: `rgba(${r},${g},${b},0.15)`,
               color: stageColor,
@@ -83,38 +124,7 @@ export function StageDropdown({
       >
         {currentStage}
       </button>
-
-      {open && (
-        <div
-          ref={dropdownRef}
-          className={cn(
-            "absolute z-50 min-w-[200px] rounded-lg border bg-popover shadow-lg py-1",
-            flipUp ? "bottom-full mb-1" : "top-full mt-1",
-            "left-0"
-          )}
-        >
-          {stages
-            .filter((s) => !s.name.toLowerCase().includes("archive"))
-            .map((stage) => (
-              <button
-                key={stage.name}
-                onClick={() => handleSelect(stage.name)}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-accent transition-colors",
-                  stage.name === currentStage && "font-medium"
-                )}
-              >
-                <span
-                  className="h-2.5 w-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: stage.color }}
-                />
-                <span style={{ color: stage.name === currentStage ? stage.color : undefined }}>
-                  {stage.name}
-                </span>
-              </button>
-            ))}
-        </div>
-      )}
+      {dropdown}
     </div>
   )
 }
