@@ -17,7 +17,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Search, Filter, Columns3, Archive } from "lucide-react";
-import type { AppStage, AppAgent } from "@/lib/mock-data";
+import type { AppStage, AppAgent } from "@/lib/app-types";
 import type { ColumnConfig } from "@/lib/types";
 import { BOROUGHS, SOURCES } from "@/lib/types";
 

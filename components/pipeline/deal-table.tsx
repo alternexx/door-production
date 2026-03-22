@@ -81,7 +81,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { useDealContext } from "@/lib/deal-context"
 import type { DealType } from "@/db/schema"
-import type { AppDeal } from "@/lib/mock-data"
+import type { AppDeal } from "@/lib/app-types"
 import { AGENT_COLORS } from "@/lib/tokens"
 import { toast } from "sonner"
 

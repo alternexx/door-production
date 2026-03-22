@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AppAgent } from "@/lib/mock-data";
+import type { AppAgent } from "@/lib/app-types";
 
 interface ShowingDialogProps {
   open: boolean;

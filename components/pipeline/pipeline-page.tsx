@@ -6,7 +6,7 @@ import { DealModal } from "./deal-modal";
 import { useDealContext } from "@/lib/deal-context";
 import type { DealType } from "@/db/schema";
 import type { StageOption } from "./deal-table";
-import type { AppDeal } from "@/lib/mock-data";
+import type { AppDeal } from "@/lib/app-types";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";

@@ -8,7 +8,7 @@ import {
   type AppStage,
   type AppAgent,
   type DealHistoryEntry,
-} from "./mock-data";
+} from "./app-types";
 import type { DealType } from "@/db/schema";
 import { AGENT_COLORS } from "@/lib/tokens";
 
@@ -42,7 +42,7 @@ export function useDealContext() {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
-function dbDealToMock(d: Record<string, unknown>, stages: Record<DealType, AppStage[]>): AppDeal {
+function dbDealToApp(d: Record<string, unknown>, stages: Record<DealType, AppStage[]>): AppDeal {
   const dealType = d.dealType as DealType;
   const stageList = stages[dealType] ?? [];
   const dbStage = (d.stage as Partial<AppStage> | undefined) ?? undefined;
@@ -50,7 +50,7 @@ function dbDealToMock(d: Record<string, unknown>, stages: Record<DealType, AppSt
   const dbStageName = dbStage?.name;
   const dbStageColor = dbStage?.color;
 
-  // DB stage IDs are UUIDs and don't match mock IDs, so resolve by DB stage name first.
+  // DB stage IDs are UUIDs — resolve by stage name first, then fall back to ID match.
   const matchedStageByName = dbStageName ? stageList.find((s) => s.name === dbStageName) : undefined;
   const fallbackStage = stageList.find((s) => s.id === dbStageId) ?? stageList[0];
   const baseStage = matchedStageByName ?? fallbackStage;
@@ -182,7 +182,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
           for (const result of results) {
             if (!result?.dealsData) continue;
             byType[result.type] = result.dealsData.map((d: Record<string, unknown>) =>
-              dbDealToMock(d, fetchedStagesByType)
+              dbDealToApp(d, fetchedStagesByType)
             );
           }
           setDealsByType(byType);
@@ -387,7 +387,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
       const d = await res.json();
 
       const allStages = stagesByType[dealType] ?? STAGES[dealType];
-      const updated = dbDealToMock(d, { ...stagesByType, [dealType]: allStages });
+      const updated = dbDealToApp(d, { ...stagesByType, [dealType]: allStages });
 
       setDealsByType(prev => ({
         ...prev,
