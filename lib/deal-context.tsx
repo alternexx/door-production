@@ -379,62 +379,24 @@ export function DealProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const reloadDeal = useCallback(async (dealType: DealType, _dealId: string) => {
-    // Re-fetch the full deal list for this type so agent chips resolve cleanly
+  const reloadDeal = useCallback(async (dealType: DealType, dealId: string) => {
+    // Fetch only the single deal and update it in-place
     try {
-      const [dealsRes, stagesRes] = await Promise.all([
-        fetch(`/api/deals?type=${dealType}&archived=true`),
-        fetch(`/api/stages?dealType=${dealType}&archive=false`),
-      ]);
-      const dealsData = dealsRes.ok ? await dealsRes.json() : null;
-      const stagesData = stagesRes.ok ? await stagesRes.json() : null;
-      if (!dealsData) return;
+      const res = await fetch(`/api/deals/${dealId}`);
+      if (!res.ok) return;
+      const d = await res.json();
 
-      const fetchedStages: AppStage[] = (stagesData || []).map((s: { id: string; name: string; color: string; orderIndex: number; isClosedWon?: boolean; isClosedLost?: boolean }) => ({
-        id: s.id, name: s.name, color: s.color, orderIndex: s.orderIndex,
-        isClosedWon: s.isClosedWon ?? false, isClosedLost: s.isClosedLost ?? false,
-        dealType,
+      const allStages = stagesByType[dealType] ?? STAGES[dealType];
+      const updated = dbDealToMock(d, { ...stagesByType, [dealType]: allStages });
+
+      setDealsByType(prev => ({
+        ...prev,
+        [dealType]: prev[dealType].map(existing =>
+          existing.id === dealId ? updated : existing
+        ),
       }));
-
-      const rawDeals = [...(dealsData.deals || []), ...(dealsData.archived || [])];
-      const allStages = fetchedStages.length ? fetchedStages : STAGES[dealType];
-
-      const mapped: AppDeal[] = rawDeals.map((d: { id: string; title: string; address: string; unit?: string; borough: string; neighborhood?: string; zip?: string; buildingId?: string; price?: string; status: string; source?: string; notes?: string; stageId?: string; stage?: { id: string; name: string; color: string }; agents?: Array<{ userId?: string; user?: { id: string; name: string } }>; createdBy?: string; creator?: AppAgent; updatedAt?: string; createdAt?: string }) => {
-        const stageObj = allStages.find(s => s.id === d.stageId) || allStages.find(s => s.name === d.stage?.name) || allStages[0];
-        return {
-          id: d.id,
-          dealType,
-          title: d.title,
-          address: d.address,
-          unit: d.unit ?? null,
-          borough: d.borough,
-          neighborhood: d.neighborhood ?? null,
-          zip: d.zip ?? null,
-          buildingId: d.buildingId ?? null,
-          price: d.price ?? null,
-          status: (d.status as "active" | "archived") ?? "active",
-          source: d.source ?? null,
-          notes: d.notes ?? null,
-          stageId: d.stageId ?? stageObj?.id ?? "",
-          stage: stageObj ?? allStages[0],
-          agents: (d.agents || []).filter((a: { user?: { name?: string } }) => a.user?.name && a.user.name !== "[deleted]").map((a: { userId?: string; user?: { id: string; name: string } }, i: number) => ({
-            id: a.userId || a.user?.id || "",
-            name: a.user?.name || "Agent",
-            color: "#9ca3af",
-            position: i,
-          })),
-          createdBy: d.createdBy ?? "",
-          creator: d.creator ?? null,
-          history: [],
-          updatedAt: d.updatedAt ? new Date(d.updatedAt) : new Date(),
-          createdAt: d.createdAt ? new Date(d.createdAt) : new Date(),
-          rawData: d,
-        } as unknown as AppDeal;
-      });
-
-      setDealsByType(prev => ({ ...prev, [dealType]: mapped }));
     } catch { /* silent */ }
-  }, []);
+  }, [stagesByType]);
 
   return (
     <DealContext.Provider value={{
