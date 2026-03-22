@@ -1,27 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { User, Palette, Bell, Link2, Settings2, Users } from "lucide-react";
+import { Palette, Bell, Link2, Settings2, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const settingsNav = [
-  {
-    section: "Account",
-    items: [
-      { type: "profile", label: "Mark Christian Romero", avatar: "MC" },
-      { type: "link", label: "Preferences", href: "/settings/preferences", icon: Palette },
-      { type: "link", label: "Notifications", href: "/settings/notifications", icon: Bell },
-      { type: "link", label: "Connections", href: "/settings/connections", icon: Link2 },
-    ],
-  },
-  {
-    section: "Admin",
-    items: [
-      { type: "link", label: "Team", href: "/settings/team", icon: Users },
-      { type: "link", label: "Configuration", href: "/settings/configuration", icon: Settings2 },
-    ],
-  },
+const accountItems = [
+  { type: "link", label: "Preferences", href: "/settings/preferences", icon: Palette },
+  { type: "link", label: "Notifications", href: "/settings/notifications", icon: Bell },
+  { type: "link", label: "Connections", href: "/settings/connections", icon: Link2 },
+];
+
+const adminItems = [
+  { type: "link", label: "Team", href: "/settings/team", icon: Users },
+  { type: "link", label: "Configuration", href: "/settings/configuration", icon: Settings2 },
 ];
 
 export default function SettingsLayout({
@@ -30,6 +23,20 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(data => {
+      if (data.role === "admin") setIsAdmin(true);
+      if (data.name) setUserName(data.name);
+      // Redirect agents away from admin pages
+      if (data.role !== "admin" && (pathname === "/settings/team" || pathname === "/settings/configuration")) {
+        router.replace("/settings/preferences");
+      }
+    }).catch(() => {});
+  }, [pathname, router]);
 
   return (
     <div className="h-full flex">
@@ -38,45 +45,51 @@ export default function SettingsLayout({
         <div className="p-4">
           <h1 className="text-lg font-semibold text-[var(--sidebar-foreground)] mb-4">Settings</h1>
           
-          {settingsNav.map((section) => (
-            <div key={section.section} className="mb-6">
+          {/* Account section */}
+          <div className="mb-6">
+            <div className="px-2 mb-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--fm-text-secondary)]/60">Account</span>
+            </div>
+            <nav className="space-y-0.5">
+              {userName && (
+                <div className="flex items-center gap-3 px-2 py-2 rounded-md">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--fm-amber)] text-white text-[10px] font-medium shrink-0">
+                    {userName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="text-[13px] text-[var(--sidebar-foreground)] truncate">{userName}</span>
+                </div>
+              )}
+              {accountItems.map((item) => {
+                const Icon = item.icon!;
+                const isActive = pathname === item.href;
+                return (
+                  <Link key={item.href} href={item.href!} className={cn(
+                    "flex items-center gap-3 px-2 py-2 rounded-md text-[13px] font-medium transition-colors",
+                    isActive ? "text-[var(--fm-amber)] bg-[var(--sidebar-accent)]" : "text-[var(--fm-text-secondary)] hover:text-[var(--sidebar-foreground)] hover:bg-black/5 dark:hover:bg-white/5"
+                  )}>
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Admin section — only visible to admins */}
+          {isAdmin && (
+            <div className="mb-6">
               <div className="px-2 mb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--fm-text-secondary)]/60">
-                  {section.section}
-                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--fm-text-secondary)]/60">Admin</span>
               </div>
               <nav className="space-y-0.5">
-                {section.items.map((item, idx) => {
-                  if (item.type === "profile") {
-                    return (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-3 px-2 py-2 rounded-md"
-                      >
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--fm-amber)] text-white text-[10px] font-medium shrink-0">
-                          {item.avatar}
-                        </div>
-                        <span className="text-[13px] text-[var(--sidebar-foreground)] truncate">
-                          {item.label}
-                        </span>
-                      </div>
-                    );
-                  }
-
+                {adminItems.map((item) => {
                   const Icon = item.icon!;
                   const isActive = pathname === item.href;
-
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href!}
-                      className={cn(
-                        "flex items-center gap-3 px-2 py-2 rounded-md text-[13px] font-medium transition-colors",
-                        isActive
-                          ? "text-[var(--fm-amber)] bg-[var(--sidebar-accent)]"
-                          : "text-[var(--fm-text-secondary)] hover:text-[var(--sidebar-foreground)] hover:bg-black/5 dark:hover:bg-white/5"
-                      )}
-                    >
+                    <Link key={item.href} href={item.href!} className={cn(
+                      "flex items-center gap-3 px-2 py-2 rounded-md text-[13px] font-medium transition-colors",
+                      isActive ? "text-[var(--fm-amber)] bg-[var(--sidebar-accent)]" : "text-[var(--fm-text-secondary)] hover:text-[var(--sidebar-foreground)] hover:bg-black/5 dark:hover:bg-white/5"
+                    )}>
                       <Icon className="h-4 w-4 shrink-0" />
                       {item.label}
                     </Link>
@@ -84,7 +97,7 @@ export default function SettingsLayout({
                 })}
               </nav>
             </div>
-          ))}
+          )}
         </div>
       </aside>
 
