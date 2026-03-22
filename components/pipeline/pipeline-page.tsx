@@ -159,19 +159,20 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
         return;
       }
       const created = await res.json();
-      // Normalise agents from API response for UI
-      const agentsForUI = (created.agents ?? [])
-        .filter((da: { removedAt?: string | null; user?: { id: string; name: string } | null }) => da.user && !da.removedAt)
-        .map((da: { user: { id: string; name: string } }) => ({
-          id: da.user.id,
-          name: da.user.name,
-          color: resolveAgentColor(da.user.id, da.user.name),
-        }));
+      // Shape must match MockDeal exactly so toDeal() can map it correctly
       const newDeal: MockDeal = {
         ...created,
-        agents: agentsForUI,
         createdAt: new Date(created.createdAt),
         updatedAt: new Date(created.updatedAt),
+        listedAt: created.listedAt ? new Date(created.listedAt) : null,
+        archivedAt: created.archivedAt ? new Date(created.archivedAt) : null,
+        // stage comes back as full object from API — keep as-is
+        stage: created.stage,
+        // agents come back as [{id, dealId, userId, user: {...}, ...}] — keep raw shape
+        agents: (created.agents ?? []).filter(
+          (a: { removedAt?: string | null }) => !a.removedAt
+        ),
+        creator: created.creator ?? null,
       };
       addDeal(newDeal);
       toast.success("Deal created");
