@@ -1,6 +1,6 @@
 import type { DealType } from "@/db/schema";
 
-// ── Mock Agent type (simplified User) ──────────────────────────────
+// ── App Agent type (simplified User) ───────────────────────────────
 export interface AppAgent {
   id: string;
   clerkId: string;
@@ -14,7 +14,7 @@ export interface AppAgent {
   updatedAt: Date;
 }
 
-// ── Mock Stage type ────────────────────────────────────────────────
+// ── App Stage type ─────────────────────────────────────────────────
 export interface AppStage {
   id: string;
   dealType: DealType;
@@ -27,7 +27,7 @@ export interface AppStage {
   createdAt: Date;
 }
 
-// ── Mock Deal ──────────────────────────────────────────────────────
+// ── App Deal ───────────────────────────────────────────────────────
 export interface AppDeal {
   id: string;
   dealType: DealType;
@@ -65,7 +65,7 @@ export interface AppDeal {
   showingDate?: string;
 }
 
-// ── Mock History Entry ─────────────────────────────────────────────
+// ── Deal History Entry ─────────────────────────────────────────────
 export interface DealHistoryEntry {
   id: string;
   dealId: string;

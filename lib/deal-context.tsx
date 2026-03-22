@@ -187,7 +187,7 @@ export function DealProvider({ children }: { children: ReactNode }) {
           }
           setDealsByType(byType);
         }
-        // If no DB data yet, keep mock data (first run)
+        // DB not loaded yet, retain current state
 
         // Fetch real agents
         try {
@@ -231,10 +231,10 @@ export function DealProvider({ children }: { children: ReactNode }) {
             }
           }
         } catch (agentErr) {
-          console.warn("Agent fetch failed, using mock agents:", agentErr);
+          console.error("Agent fetch failed:", agentErr);
         }
       } catch (e) {
-        console.warn("DB load failed, using mock data:", e);
+        console.error("DB load failed:", e);
       } finally {
         setIsLoading(false);
         setDbLoaded(true);
