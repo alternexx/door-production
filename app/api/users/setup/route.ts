@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, or, like } from "drizzle-orm";
+import { and, eq, or, like, ne } from "drizzle-orm";
 
 export async function GET() {
   try {
@@ -15,9 +15,12 @@ export async function GET() {
       .select({ id: users.id, name: users.name })
       .from(users)
       .where(
-        or(
-          like(users.clerkId, "import_%"),
-          like(users.clerkId, "unlinked_%")
+        and(
+          or(
+            like(users.clerkId, "import_%"),
+            like(users.clerkId, "unlinked_%")
+          ),
+          ne(users.name, "[deleted]")
         )
       )
       .orderBy(users.name);
