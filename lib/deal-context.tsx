@@ -233,10 +233,16 @@ export function DealProvider({ children }: { children: ReactNode }) {
           }));
 
           if (realAgents.length) {
-            const markAgent = realAgents.find(a => a.clerkId.includes("mark")) || realAgents[0];
-            const realCurrentAgent: MockAgent = { ...markAgent };
             setAgentList(realAgents);
-            setCurrentAgent(realCurrentAgent);
+            // Identify current user from /api/auth/me
+            try {
+              const meRes = await fetch("/api/auth/me");
+              const meData = meRes.ok ? await meRes.json() : null;
+              const me = meData?.id ? realAgents.find(a => a.id === meData.id) : null;
+              setCurrentAgent(me ? { ...me } : { ...realAgents[0] });
+            } catch {
+              setCurrentAgent({ ...realAgents[0] });
+            }
           }
         } catch (agentErr) {
           console.warn("Agent fetch failed, using mock agents:", agentErr);
