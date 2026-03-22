@@ -45,7 +45,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const deal = await db.query.deals.findFirst({
     where: eq(deals.id, id),
-    with: { stage: true, agents: { with: { user: true } }, creator: true },
+    with: { stage: true, agents: { with: { user: true }, where: (da, { isNull }) => isNull(da.removedAt) }, creator: true },
   });
   if (!deal) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(deal);

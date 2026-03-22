@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
       where: conditions.length ? and(...conditions) : undefined,
       with: {
         stage: true,
-        agents: { with: { user: true } },
+        agents: { with: { user: true }, where: (da, { isNull }) => isNull(da.removedAt) },
         creator: true,
       },
       orderBy: (deals, { desc }) => [desc(deals.updatedAt)],
