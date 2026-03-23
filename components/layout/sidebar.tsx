@@ -17,10 +17,12 @@ import {
   HelpCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  BarChart2,
 } from "lucide-react";
 import { useState } from "react";
 import { useSidebar } from "@/context/sidebar-context";
 import { useSettingsModal } from "@/context/settings-modal-context";
+import { useDealContext } from "@/lib/deal-context";
 import { UserButton, useUser } from "@clerk/nextjs";
 
 const pipelineItems = [
@@ -35,6 +37,10 @@ const dataItems = [
   { label: "Buildings", href: "/buildings", icon: Building2 },
   // { label: "Landlords", href: "/landlords", icon: Users }, // temporarily hidden
   // { label: "Contacts", href: "/contacts", icon: Users }, // temporarily hidden
+];
+
+const adminDataItems = [
+  { label: "Team", href: "/data/team", icon: BarChart2 },
 ];
 
 function NavItem({
@@ -77,6 +83,8 @@ export function Sidebar() {
   const [peeking, setPeeking] = useState(false);
   const { collapsed, setCollapsed } = useSidebar();
   const { openSettings } = useSettingsModal();
+  const { currentAgent } = useDealContext();
+  const isAdmin = currentAgent?.role === "admin";
 
   const { user } = useUser();
 
@@ -165,6 +173,29 @@ export function Sidebar() {
             onClick={() => setMobileOpen(false)}
           />
         ))}
+
+        {isAdmin && (
+          <>
+            {!effectiveCollapsed && (
+              <div className="px-3 py-3">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--fm-text-secondary)]/60">
+                  Admin
+                </span>
+              </div>
+            )}
+            {adminDataItems.map((item) => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                isActive={isActive(item.href)}
+                collapsed={effectiveCollapsed}
+                onClick={() => setMobileOpen(false)}
+              />
+            ))}
+          </>
+        )}
       </nav>
 
       {/* Bottom */}
