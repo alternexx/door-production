@@ -2,12 +2,10 @@
 import { useEffect } from "react";
 import { useSettingsModal } from "@/context/settings-modal-context";
 import { useDealContext } from "@/lib/deal-context";
-import { X, Palette, Bell, Link2, Settings2 } from "lucide-react";
+import { X, Palette, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import PreferencesContent from "@/app/(dashboard)/settings/preferences/page";
-import NotificationsContent from "@/app/(dashboard)/settings/notifications/page";
-import ConnectionsContent from "@/app/(dashboard)/settings/connections/page";
 import ConfigurationContent from "@/app/(dashboard)/settings/configuration/page";
 
 const nav = [
@@ -15,8 +13,6 @@ const nav = [
     section: "Account",
     items: [
       { id: "preferences" as const, label: "Preferences", icon: Palette },
-      { id: "notifications" as const, label: "Notifications", icon: Bell },
-      { id: "connections" as const, label: "Connections", icon: Link2 },
     ],
   },
   {
@@ -102,8 +98,6 @@ export function SettingsModal() {
         {/* Right content — transparent bg */}
         <main className="flex-1 overflow-y-auto">
           {activePanel === "preferences" && <PreferencesContent />}
-          {activePanel === "notifications" && <NotificationsContent />}
-          {activePanel === "connections" && <ConnectionsContent />}
           {activePanel === "configuration" && <ConfigurationContent />}
         </main>
       </div>

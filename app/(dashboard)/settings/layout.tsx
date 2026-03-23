@@ -3,14 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Palette, Bell, Link2, Settings2 } from "lucide-react";
+import { Palette, Settings2 } from "lucide-react";
 import { useEffect } from "react";
 import { useDealContext } from "@/lib/deal-context";
 
 const accountItems = [
   { type: "link", label: "Preferences", href: "/settings/preferences", icon: Palette },
-  { type: "link", label: "Notifications", href: "/settings/notifications", icon: Bell },
-  { type: "link", label: "Connections", href: "/settings/connections", icon: Link2 },
 ];
 
 const adminItems = [
