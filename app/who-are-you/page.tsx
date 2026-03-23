@@ -31,12 +31,30 @@ export default function WhoAreYouPage() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch("/api/users/unlinked")
+    // First check if we're already linked (email fallback in auth.ts may have linked us)
+    fetch("/api/auth/me")
       .then((r) => r.json())
-      .then((data) => setAgents(data))
-      .catch(() => setError("Failed to load agents"))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((me) => {
+        if (me.id) {
+          // Already linked — go straight to dashboard
+          router.replace("/dashboard");
+          return;
+        }
+        // Not linked — fetch unlinked agents
+        return fetch("/api/users/unlinked")
+          .then((r) => r.json())
+          .then((data) => setAgents(data))
+          .catch(() => setError("Failed to load agents"))
+          .finally(() => setLoading(false));
+      })
+      .catch(() => {
+        fetch("/api/users/unlinked")
+          .then((r) => r.json())
+          .then((data) => setAgents(data))
+          .catch(() => setError("Failed to load agents"))
+          .finally(() => setLoading(false));
+      });
+  }, [router]);
 
   async function handleSelect(agentId: string) {
     setSelectedId(agentId);

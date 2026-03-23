@@ -683,7 +683,10 @@ export function DealTable({
     // Build API payload
     const apiPayload: Record<string, unknown> = {}
     if (data.primaryField) apiPayload.title = data.primaryField as string
+    if (data.address !== undefined) apiPayload.address = data.address
+    if (data.unit !== undefined) apiPayload.unit = data.unit
     if (data.borough) apiPayload.borough = data.borough
+    if (data.neighborhood !== undefined) apiPayload.neighborhood = data.neighborhood
     if (data.price !== undefined) apiPayload.price = data.price ? Number(String(data.price).replace(/[^0-9.]/g, "")) : null
     if (data.notes !== undefined) apiPayload.notes = data.notes
     if (data.source !== undefined) apiPayload.source = data.source || null
