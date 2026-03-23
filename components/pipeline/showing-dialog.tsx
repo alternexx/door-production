@@ -105,37 +105,60 @@ export function ShowingDialog({
                     day: "group/day relative aspect-square h-full w-full rounded-md p-0 text-center select-none data-[selected=true]:bg-[#b45309] data-[selected=true]:text-white",
                   }}
                 />
-                <div className="border-t px-3 py-2 flex items-center gap-2">
-                  <Select value={hour} onValueChange={(v) => v && setHour(v)}>
-                    <SelectTrigger className="w-[68px] h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {HOURS.map((h) => (
-                        <SelectItem key={h} value={String(h)}>{String(h)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="text-sm text-muted-foreground">:</span>
-                  <Select value={minute} onValueChange={(v) => v && setMinute(v)}>
-                    <SelectTrigger className="w-[68px] h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
+                {/* Time picker — inline pill buttons */}
+                <div className="border-t px-3 pt-3 pb-2 space-y-2">
+                  {/* Hours */}
+                  <div className="flex flex-wrap gap-1">
+                    {HOURS.map((h) => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => setHour(String(h))}
+                        className={`h-7 w-9 rounded-md text-xs font-medium transition-colors ${
+                          hour === String(h)
+                            ? "bg-[#b45309] text-white"
+                            : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                        }`}
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Minutes + AM/PM */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
                       {MINUTES.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setMinute(m)}
+                          className={`h-7 w-10 rounded-md text-xs font-medium transition-colors ${
+                            minute === m
+                              ? "bg-[#b45309] text-white"
+                              : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                          }`}
+                        >
+                          :{m}
+                        </button>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={ampm} onValueChange={(v) => v && setAmpm(v)}>
-                    <SelectTrigger className="w-[68px] h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AM">AM</SelectItem>
-                      <SelectItem value="PM">PM</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    </div>
+                    <div className="ml-auto flex gap-1">
+                      {["AM", "PM"].map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setAmpm(p)}
+                          className={`h-7 px-3 rounded-md text-xs font-medium transition-colors ${
+                            ampm === p
+                              ? "bg-[#b45309] text-white"
+                              : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
