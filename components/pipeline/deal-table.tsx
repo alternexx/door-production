@@ -300,6 +300,7 @@ export function DealTable({
   const showStageColorIndicators = typeof window !== "undefined" ? localStorage.getItem("door-stage-color-indicators") !== "false" : true
   const showStageTooltip = typeof window !== "undefined" ? localStorage.getItem("door-stage-tooltip-hover") !== "false" : true
   const confirmBackward = typeof window !== "undefined" ? localStorage.getItem("door-config-confirm-stage-backward") !== "false" : true
+  const agentsCanDelete = typeof window !== "undefined" ? localStorage.getItem("door-config-agents-can-delete") === "true" : false
 
   // Filter state — initialize myDeals from preference
   const [filters, setFilters] = useState<FilterState>(() => {
@@ -2366,7 +2367,7 @@ export function DealTable({
         agents={agents}
         stages={stages}
         onSave={editingDeal ? handleSaveEditDeal : handleSaveNewDeal}
-        onDelete={editingDeal ? handleDeleteDeal : undefined}
+        onDelete={editingDeal && (isAdmin || agentsCanDelete) ? handleDeleteDeal : undefined}
         onOpenHistoryShelf={editingDeal ? () => {
           setHistoryDeal(editingDeal)
           setHistoryOpen(true)
@@ -2461,7 +2462,7 @@ export function DealTable({
         onAssignAgent={handleBulkAssignAgent}
         onExportCsv={exportToCsv}
         onDelete={
-          isAdmin
+          (isAdmin || agentsCanDelete)
             ? () => {
                 setDeletingIds(Array.from(selectedIds))
                 setDeleteConfirmOpen(true)
