@@ -708,8 +708,9 @@ export function DealTable({
       const found = ctxStages.find((s) => s.name === data.stage || s.id === data.stage)
       if (found) apiPayload.stageId = found.id
     }
-    // Always send agentIds so the API can update them
-    const agentIds = Array.isArray(data.agent_ids) ? data.agent_ids as string[] : editingDeal.agents.map((a) => a.id)
+    // Always send agentIds so the API can update them — filter out empty/invalid ids
+    const rawAgentIds = Array.isArray(data.agent_ids) ? data.agent_ids as string[] : editingDeal.agents.map((a) => a.id)
+    const agentIds = rawAgentIds.filter((id) => typeof id === "string" && id.trim() !== "")
     apiPayload.agentIds = agentIds
 
     try {

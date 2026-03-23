@@ -147,8 +147,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .where(eq(deals.id, id))
       .returning();
 
-    // Handle agent updates if provided
-    if (agentIds !== undefined) {
+    // Handle agent updates if provided — filter empty ids defensively
+    const safeAgentIds = Array.isArray(agentIds) ? (agentIds as string[]).filter((id) => typeof id === "string" && id.trim() !== "") : agentIds;
+    if (safeAgentIds !== undefined) {
       // Get old agent names before deleting
       const oldAgentRows = await db
         .select({ name: users.name })
@@ -158,9 +159,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const oldAgentNames = oldAgentRows.map((r) => r.name).sort();
 
       await db.delete(dealAgents).where(eq(dealAgents.dealId, id));
-      if (agentIds.length) {
+      if (safeAgentIds.length) {
         await db.insert(dealAgents).values(
-          agentIds.map((userId: string) => ({
+          safeAgentIds.map((userId: string) => ({
             dealId: id,
             userId,
             assignedAt: new Date(),
@@ -170,11 +171,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
       // Get new agent names and write history if changed
       const newAgentNames: string[] = [];
-      if (agentIds.length) {
+      if (safeAgentIds.length) {
         const newAgentRows = await db
           .select({ name: users.name })
           .from(users)
-          .where(inArray(users.id, agentIds));
+          .where(inArray(users.id, safeAgentIds));
         newAgentNames.push(...newAgentRows.map((r) => r.name).sort());
       }
 
