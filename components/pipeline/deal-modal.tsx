@@ -29,7 +29,10 @@ import { useIsMobile } from "@/hooks/use-media-query"
 import { getDealTypeConfig, type FieldConfig } from "@/lib/deal-types"
 import { BOROUGHS } from "@/lib/tokens"
 import { toast } from "sonner"
-import { Users, X, Loader2, ChevronRight, SendHorizonal } from "lucide-react"
+import { Users, X, Loader2, ChevronRight, SendHorizonal, CalendarIcon } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format, parse } from "date-fns"
 import { useDealContext } from "@/lib/deal-context"
 import type { Deal, StageOption } from "./deal-table"
 
@@ -610,17 +613,41 @@ export function DealModal({
     }
 
     if (field.type === "date") {
+      const dateValue = value as string | undefined
+      const dateObj = dateValue ? parse(dateValue, "yyyy-MM-dd", new Date()) : undefined
+      const validDate = dateObj && !isNaN(dateObj.getTime()) ? dateObj : undefined
       return (
         <div key={field.key} className={fieldWrapClass}>
           <label className="text-xs font-medium text-muted-foreground">
             {field.label}
           </label>
-          <Input
-            type="date"
-            value={(value as string) || ""}
-            onChange={(e) => setField(field.key, e.target.value)}
-            className="h-9 text-sm"
-          />
+          <Popover>
+            <PopoverTrigger
+              className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-left"
+            >
+              <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+              {validDate ? (
+                <span>{format(validDate, "MMM d, yyyy")}</span>
+              ) : (
+                <span className="text-muted-foreground">Pick a date</span>
+              )}
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={validDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setField(field.key, format(date, "yyyy-MM-dd"))
+                  }
+                }}
+                classNames={{
+                  today: "bg-[#b45309]/20 text-foreground",
+                  day: "group/day relative aspect-square h-full w-full rounded-md p-0 text-center select-none data-[selected=true]:bg-[#b45309] data-[selected=true]:text-white",
+                }}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       )
     }

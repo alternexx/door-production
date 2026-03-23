@@ -10,7 +10,10 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, CheckCircle } from "lucide-react"
+import { Loader2, CheckCircle, CalendarIcon } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format, parse } from "date-fns"
 
 interface PromoteModalProps {
   open: boolean
@@ -116,12 +119,33 @@ export function PromoteModal({
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Move-in Date</label>
-              <Input
-                type="date"
-                value={moveInDate}
-                onChange={(e) => setMoveInDate(e.target.value)}
-                className="h-9 text-sm"
-              />
+              <Popover>
+                <PopoverTrigger
+                  className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-left"
+                >
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  {moveInDate ? (
+                    <span>{format(parse(moveInDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy")}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Pick a date</span>
+                  )}
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={moveInDate ? parse(moveInDate, "yyyy-MM-dd", new Date()) : undefined}
+                    onSelect={(date) => {
+                      if (date) {
+                        setMoveInDate(format(date, "yyyy-MM-dd"))
+                      }
+                    }}
+                    classNames={{
+                      today: "bg-[#b45309]/20 text-foreground",
+                      day: "group/day relative aspect-square h-full w-full rounded-md p-0 text-center select-none data-[selected=true]:bg-[#b45309] data-[selected=true]:text-white",
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-1.5">
