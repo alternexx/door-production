@@ -249,10 +249,10 @@ export default function DashboardPage() {
                         {/* Hover brighten overlay */}
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-sm"
                           style={{ backgroundColor: s.stageColor + "40" }} />
-                        {/* Normal text — hidden on hover */}
+                        {/* Normal text */}
                         <span className="relative text-[10px] truncate font-medium opacity-50 group-hover:opacity-0 transition-opacity duration-150 pointer-events-none"
                           style={{ color: s.stageColor }}>
-                          {s.count}
+                          {s.stageName} ({s.count})
                         </span>
                         {/* Hover tooltip — full label */}
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap">
