@@ -39,7 +39,27 @@ interface CommentEntry {
   createdAt: string
 }
 
-interface TaskHistoryEntry {
+interface ShowingEventEntry {
+  action: string
+  changedBy: string
+  changedAt: string
+}
+
+interface ShowingWithHistory {
+  id: string
+  scheduledAt: string
+  status: "scheduled" | "completed" | "cancelled" | "no_show"
+  agent: { name: string } | null
+  history: ShowingEventEntry[]
+}
+
+interface TaskEventEntry {
+  action: string
+  changedBy: string
+  changedAt: string
+}
+
+interface TaskWithHistory {
   id: string
   title: string
   status: string
@@ -49,13 +69,7 @@ interface TaskHistoryEntry {
   createdAt: string
   creator: { id: string; name: string } | null
   assignee: { id: string; name: string } | null
-}
-
-interface ShowingHistoryEntry {
-  id: string
-  scheduledAt: string
-  status: "scheduled" | "completed" | "cancelled" | "no_show"
-  agent: { id: string; name: string }
+  history: TaskEventEntry[]
 }
 
 interface HistoryShelfProps {
@@ -132,6 +146,19 @@ function fieldColor(field: string): string {
   return "bg-gray-400"
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  scheduled: "Scheduled",
+  rescheduled: "Rescheduled",
+  completed: "Completed",
+  feedback_added: "Feedback added",
+  cancelled: "Cancelled",
+  no_show: "No-show",
+  created: "Created",
+  updated: "Updated",
+  reopened: "Reopened",
+  reassigned: "Reassigned",
+}
+
 export function HistoryShelf({
   open,
   onClose,
@@ -141,8 +168,8 @@ export function HistoryShelf({
 }: HistoryShelfProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [stageTimeline, setStageTimeline] = useState<StageTimelineEntry[]>([])
-  const [showingsHistory, setShowingsHistory] = useState<ShowingHistoryEntry[]>([])
-  const [tasksHistory, setTasksHistory] = useState<TaskHistoryEntry[]>([])
+  const [showingsData, setShowingsData] = useState<ShowingWithHistory[]>([])
+  const [tasksData, setTasksData] = useState<TaskWithHistory[]>([])
   const [commentsHistory, setCommentsHistory] = useState<CommentEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<Tab>("all")
@@ -150,6 +177,7 @@ export function HistoryShelf({
 
   useEffect(() => {
     if (!open || !dealId) return
+    setLoading(true)
     fetch(`/api/deals/${dealId}/history`)
       .then((r) => r.json())
       .then((data) => {
@@ -167,17 +195,17 @@ export function HistoryShelf({
       })
       .finally(() => setLoading(false))
 
-    // Fetch showings history (all statuses)
-    fetch(`/api/showings?deal_id=${dealId}`)
+    // Fetch showings with history timeline
+    fetch(`/api/deals/${dealId}/showings-history`)
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setShowingsHistory(data) })
-      .catch(() => setShowingsHistory([]))
+      .then((data) => { if (Array.isArray(data)) setShowingsData(data) })
+      .catch(() => setShowingsData([]))
 
-    // Fetch tasks history
-    fetch(`/api/tasks?deal_id=${dealId}`)
+    // Fetch tasks with history timeline
+    fetch(`/api/deals/${dealId}/tasks-history`)
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setTasksHistory(data) })
-      .catch(() => setTasksHistory([]))
+      .then((data) => { if (Array.isArray(data)) setTasksData(data) })
+      .catch(() => setTasksData([]))
 
     // Fetch comments
     fetch(`/api/deals/${dealId}/comments`)
@@ -302,11 +330,11 @@ export function HistoryShelf({
               </div>
             )
           ) : tab === "tasks" ? (
-            tasksHistory.length === 0 ? (
+            tasksData.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">No tasks recorded</p>
             ) : (
-              <div className="space-y-2">
-                {tasksHistory.map((t) => {
+              <div className="space-y-3">
+                {tasksData.map((t) => {
                   const isDone = t.status === "completed"
                   const priorityColors: Record<string, string> = {
                     low: "text-muted-foreground",
@@ -315,30 +343,40 @@ export function HistoryShelf({
                     urgent: "text-red-500",
                   }
                   return (
-                    <div key={t.id} className="flex items-start gap-2 px-1 py-1.5">
-                      <div className={cn("mt-0.5 size-2 rounded-full shrink-0", isDone ? "bg-green-500" : "bg-muted-foreground/40")} />
-                      <div className="flex-1 min-w-0">
-                        <p className={cn("text-sm", isDone && "line-through text-muted-foreground")}>{t.title}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className={cn("text-[10px]", priorityColors[t.priority] ?? "text-muted-foreground")}>{t.priority}</span>
-                          {t.dueDate && <span className="text-[10px] text-muted-foreground">· due {new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
-                          {t.creator && <span className="text-[10px] text-muted-foreground">· {t.creator.name}</span>}
+                    <div key={t.id} className="px-1">
+                      <div className="flex items-start gap-2 py-1">
+                        <div className={cn("mt-0.5 size-2 rounded-full shrink-0", isDone ? "bg-green-500" : "bg-muted-foreground/40")} />
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("text-sm", isDone && "line-through text-muted-foreground")}>{t.title}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className={cn("text-[10px]", priorityColors[t.priority] ?? "text-muted-foreground")}>{t.priority}</span>
+                            {t.dueDate && <span className="text-[10px] text-muted-foreground">· due {new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                          </div>
                         </div>
+                        <span className={cn("text-[10px] shrink-0", isDone ? "text-green-600 dark:text-green-400" : "text-muted-foreground")}>
+                          {isDone ? "done" : "open"}
+                        </span>
                       </div>
-                      <span className={cn("text-[10px] shrink-0", isDone ? "text-green-600 dark:text-green-400" : "text-muted-foreground")}>
-                        {isDone ? "done" : "open"}
-                      </span>
+                      {t.history.length > 0 && (
+                        <div className="ml-4 mt-1 mb-1 space-y-0.5 border-l border-border pl-2">
+                          {t.history.map((h, i) => (
+                            <div key={i} className="text-[10px] text-muted-foreground">
+                              {ACTION_LABELS[h.action] ?? h.action} by {h.changedBy || "System"} · {relativeTime(h.changedAt)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
               </div>
             )
           ) : tab === "showings" ? (
-            showingsHistory.length === 0 ? (
+            showingsData.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">No showings recorded</p>
             ) : (
-              <div className="space-y-2">
-                {showingsHistory.map((s) => {
+              <div className="space-y-3">
+                {showingsData.map((s) => {
                   const d = new Date(s.scheduledAt)
                   const month = d.getMonth() + 1
                   const day = d.getDate()
@@ -347,7 +385,8 @@ export function HistoryShelf({
                   const ampm = hours >= 12 ? "pm" : "am"
                   const h = hours % 12 || 12
                   const mm = minutes === 0 ? "" : `:${String(minutes).padStart(2, "0")}`
-                  const label = `${s.agent?.name?.split(" ")[0] || "Open house"}: ${month}/${day} ${h}${mm}${ampm}`
+                  const agentName = s.agent?.name?.split(" ")[0] || "Open house"
+                  const label = `${agentName}: ${month}/${day} ${h}${mm}${ampm}`
                   const statusColor: Record<string, string> = {
                     scheduled: "text-blue-500",
                     completed: "text-green-600 dark:text-green-400",
@@ -361,11 +400,22 @@ export function HistoryShelf({
                     no_show: "no-show",
                   }
                   return (
-                    <div key={s.id} className="flex items-center gap-2 px-1 py-1.5">
-                      <span className="text-sm flex-1">{label}</span>
-                      <span className={cn("text-[10px]", statusColor[s.status])}>
-                        {statusLabel[s.status] ?? s.status}
-                      </span>
+                    <div key={s.id} className="px-1">
+                      <div className="flex items-center gap-2 py-1">
+                        <span className="text-sm flex-1">{label}</span>
+                        <span className={cn("text-[10px]", statusColor[s.status])}>
+                          {statusLabel[s.status] ?? s.status}
+                        </span>
+                      </div>
+                      {s.history.length > 0 && (
+                        <div className="ml-2 mt-0.5 mb-1 space-y-0.5 border-l border-border pl-2">
+                          {s.history.map((ev, i) => (
+                            <div key={i} className="text-[10px] text-muted-foreground">
+                              {ACTION_LABELS[ev.action] ?? ev.action} by {ev.changedBy || "System"} · {relativeTime(ev.changedAt)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -403,14 +453,10 @@ export function HistoryShelf({
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        {entry.changedByName && (
-                          <>
-                            <span className="text-xs text-muted-foreground">
-                              {entry.changedByName}
-                            </span>
-                            <span className="text-xs text-muted-foreground">·</span>
-                          </>
-                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {entry.changedByName || "System"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">·</span>
                         <span className="text-xs text-muted-foreground">
                           {relativeTime(entry.changedAt)}
                         </span>

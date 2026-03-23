@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { deals, dealAgents, dealHistory, dealStageHistory, pipelineStages } from "@/db/schema";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { deals, dealAgents, dealHistory, dealStageHistory, pipelineStages, users } from "@/db/schema";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 
 type DealInsert = typeof deals.$inferInsert;
@@ -105,6 +105,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Handle agent updates if provided
     if (agentIds !== undefined) {
+      // Get old agent names before deleting
+      const oldAgentRows = await db
+        .select({ name: users.name })
+        .from(dealAgents)
+        .innerJoin(users, eq(dealAgents.userId, users.id))
+        .where(and(eq(dealAgents.dealId, id), isNull(dealAgents.removedAt)));
+      const oldAgentNames = oldAgentRows.map((r) => r.name).sort();
+
       await db.delete(dealAgents).where(eq(dealAgents.dealId, id));
       if (agentIds.length) {
         await db.insert(dealAgents).values(
@@ -114,6 +122,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             assignedAt: new Date(),
           }))
         );
+      }
+
+      // Get new agent names and write history if changed
+      const newAgentNames: string[] = [];
+      if (agentIds.length) {
+        const newAgentRows = await db
+          .select({ name: users.name })
+          .from(users)
+          .where(inArray(users.id, agentIds));
+        newAgentNames.push(...newAgentRows.map((r) => r.name).sort());
+      }
+
+      const oldStr = oldAgentNames.join(", ") || "(none)";
+      const newStr = newAgentNames.join(", ") || "(none)";
+      if (oldStr !== newStr) {
+        historyRows.push({
+          dealId: id,
+          dealType: existingDeal.dealType,
+          field: "agents",
+          oldValue: oldStr,
+          newValue: newStr,
+          changedById,
+          changedByName,
+          changedAt: now,
+        });
       }
     }
 
