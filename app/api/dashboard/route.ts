@@ -8,6 +8,7 @@ import {
   showings,
   tasks,
   pipelineStages,
+  dealStageHistory,
 } from "@/db/schema";
 import { eq, and, gte, sql, ne, inArray, isNull, lt } from "drizzle-orm";
 
@@ -46,6 +47,9 @@ export async function GET() {
     tenantRepLossesResult,
     applicationWinsResult,
     applicationLossesResult,
+    dealsCreatedThisWeekResult,
+    dealsClosedThisWeekResult,
+    stageChangesThisWeekResult,
   ] = await Promise.all([
     // activityFeed: last 50 dealHistory
     db
@@ -232,6 +236,18 @@ export async function GET() {
     db.select({ count: sql<number>`count(*)::int` }).from(deals)
       .innerJoin(pipelineStages, eq(deals.stageId, pipelineStages.id))
       .where(and(eq(deals.dealType, "application"), eq(deals.status, "archived"), eq(pipelineStages.outcome, "loss"))),
+
+    // deals created this week
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .where(gte(deals.createdAt, sevenDaysAgo)),
+
+    // deals closed (archived) this week
+    db.select({ count: sql<number>`count(*)::int` }).from(deals)
+      .where(and(eq(deals.status, "archived"), gte(deals.archivedAt, sevenDaysAgo))),
+
+    // stage moves this week
+    db.select({ count: sql<number>`count(*)::int` }).from(dealStageHistory)
+      .where(gte(dealStageHistory.enteredAt, sevenDaysAgo)),
   ]);
 
   function calcWinRate(winsRes: typeof rentalWinsResult, lossesRes: typeof rentalLossesResult) {
@@ -307,5 +323,8 @@ export async function GET() {
       rate: winRate,
     },
     winRates,
+    dealsCreatedThisWeek: dealsCreatedThisWeekResult[0]?.count ?? 0,
+    dealsClosedThisWeek: dealsClosedThisWeekResult[0]?.count ?? 0,
+    stageChangesThisWeek: stageChangesThisWeekResult[0]?.count ?? 0,
   });
 }

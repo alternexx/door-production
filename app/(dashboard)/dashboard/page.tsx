@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface DashboardData {
   activityFeed: Array<{
@@ -56,6 +57,9 @@ interface DashboardData {
     tenantRep: { wins: number; losses: number; total: number; rate: number };
     application: { wins: number; losses: number; total: number; rate: number };
   };
+  dealsCreatedThisWeek: number;
+  dealsClosedThisWeek: number;
+  stageChangesThisWeek: number;
 }
 
 const DEAL_TYPE_LABELS: Record<string, string> = {
@@ -66,53 +70,23 @@ const DEAL_TYPE_LABELS: Record<string, string> = {
   application: "Applications",
 };
 
+const DEAL_TYPE_ROUTES: Record<string, string> = {
+  rental: "/pipeline/rentals",
+  seller: "/pipeline/sellers",
+  buyer: "/pipeline/buyers",
+  tenant_rep: "/pipeline/tenant-rep",
+  application: "/pipeline/applications",
+};
+
 function formatMoney(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toLocaleString()}`;
 }
 
-function relativeTime(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-function presenceDot(lastActiveAt: string | null, isActive: boolean) {
-  if (!isActive) return "bg-gray-300";
-  if (!lastActiveAt) return "bg-gray-400";
-  const mins = (Date.now() - new Date(lastActiveAt).getTime()) / 60000;
-  if (mins < 2) return "bg-green-500";
-  if (mins < 30) return "bg-yellow-400";
-  return "bg-gray-400";
-}
-
-function presenceLabel(lastActiveAt: string | null, isActive: boolean) {
-  if (!isActive) return "not activated";
-  if (!lastActiveAt) return "never signed in";
-  const mins = Math.floor(
-    (Date.now() - new Date(lastActiveAt).getTime()) / 60000
-  );
-  if (mins < 2) return "online";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-const FIELD_DOT_COLORS: Record<string, string> = {
-  stage: "bg-blue-500",
-  price: "bg-green-500",
-  status: "bg-amber-500",
-  notes: "bg-purple-500",
-};
-
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     fetch("/api/dashboard")
@@ -134,37 +108,13 @@ export default function DashboardPage() {
     );
   }
 
-  const topCards = [
-    {
-      label: "Rentals",
-      count: data.dealCounts["rental"] ?? 0,
-      sub: `${formatMoney(data.priceTotals.rentals)} total`,
-      rawVal: data.priceTotals.rentals,
-    },
-    {
-      label: "Sellers",
-      count: data.dealCounts["seller"] ?? 0,
-      sub: `${formatMoney(data.priceTotals.sellers)} total`,
-      rawVal: data.priceTotals.sellers,
-    },
-    {
-      label: "Buyers",
-      count: data.dealCounts["buyer"] ?? 0,
-      sub: `${formatMoney(data.priceTotals.buyers)} total`,
-      rawVal: data.priceTotals.buyers,
-    },
-    {
-      label: "Tenant Rep",
-      count: data.dealCounts["tenant_rep"] ?? 0,
-      sub: `${formatMoney(data.priceTotals.tenantRep)} commission`,
-      rawVal: data.priceTotals.tenantRep,
-    },
-    {
-      label: "Applications",
-      count: data.applicationsTotal,
-      sub: `${formatMoney(data.applicationsPriceTotal)} total`,
-      rawVal: data.applicationsPriceTotal,
-    },
+  // Pipeline table rows
+  const pipelineRows = [
+    { label: "Rentals", key: "rental", wrKey: "rental" as const, volume: data.priceTotals.rentals, rawVolume: data.priceTotals.rentals, volumeLabel: "total" },
+    { label: "Sellers", key: "seller", wrKey: "seller" as const, volume: data.priceTotals.sellers, rawVolume: data.priceTotals.sellers, volumeLabel: "total" },
+    { label: "Buyers", key: "buyer", wrKey: "buyer" as const, volume: data.priceTotals.buyers, rawVolume: data.priceTotals.buyers, volumeLabel: "total" },
+    { label: "Tenant Rep", key: "tenant_rep", wrKey: "tenantRep" as const, volume: data.priceTotals.tenantRep, rawVolume: data.priceTotals.tenantRep, volumeLabel: "commission" },
+    { label: "Applications", key: "application", wrKey: "application" as const, volume: data.applicationsPriceTotal, rawVolume: data.applicationsPriceTotal, volumeLabel: "total" },
   ];
 
   // Group stage distribution by deal type
@@ -177,74 +127,96 @@ export default function DashboardPage() {
     stagesByType[row.dealType].push(row);
   }
 
+  const allFlagsClear = data.flagCounts.stale === 0 && data.flagCounts.stageStuck === 0 && data.flagCounts.agentTooLong === 0;
+
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
   return (
     <div className="h-full overflow-hidden">
       <div className="h-full overflow-y-auto p-4 lg:p-6 space-y-5">
-          <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
-
-          {/* Pipeline Volume */}
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Pipeline Volume</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {topCards.map((c) => (
-              <div key={c.label} className="bg-card border rounded-xl p-4 flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">{c.label}</span>
-                <span className="text-2xl font-semibold text-foreground">{c.count}</span>
-                <span
-                  className="text-xs text-muted-foreground cursor-default"
-                  title={`$${c.rawVal.toLocaleString()}`}
-                >{c.sub}</span>
-              </div>
-            ))}
-          </div>
+          {/* Header */}
+          <div className="flex items-baseline justify-between">
+            <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+            <span className="text-xs text-muted-foreground">{today}</span>
           </div>
 
-          {/* Win Rates */}
-          {data.winRates && (
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Win Rates</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {([
-                { label: "Rentals", key: "rental" as const },
-                { label: "Sellers", key: "seller" as const },
-                { label: "Buyers", key: "buyer" as const },
-                { label: "Tenant Rep", key: "tenantRep" as const },
-                { label: "Applications", key: "application" as const },
-              ]).map((item) => {
-                const wr = data.winRates[item.key];
-                return (
-                  <div key={item.key} className="bg-card border rounded-xl p-4 flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">{item.label}</span>
-                    {wr.total > 0 ? (
-                      <>
-                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full w-fit ${wr.rate > 50 ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>
-                          {wr.rate}% win rate
-                        </span>
-                        <span className="text-xs text-muted-foreground">({wr.wins} wins / {wr.total} total)</span>
-                      </>
-                    ) : (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full w-fit bg-muted text-muted-foreground">Not enough data</span>
-                    )}
-                  </div>
-                );
-              })}
+          {/* This Week Summary */}
+          <div className="flex gap-3">
+            <div className="flex-1 bg-card border rounded-xl px-4 py-3 flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">Created</span>
+              <span className="text-lg font-semibold text-foreground">{data.dealsCreatedThisWeek}</span>
+            </div>
+            <div className="flex-1 bg-card border rounded-xl px-4 py-3 flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">Closed</span>
+              <span className="text-lg font-semibold text-foreground">{data.dealsClosedThisWeek}</span>
+            </div>
+            <div className="flex-1 bg-card border rounded-xl px-4 py-3 flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">Stage Moves</span>
+              <span className="text-lg font-semibold text-foreground">{data.stageChangesThisWeek}</span>
+            </div>
+            <div className="flex-none bg-muted/50 border rounded-xl px-3 py-3 flex items-center">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">This Week</span>
             </div>
           </div>
-          )}
+
+          {/* Pipeline Overview — merged table */}
+          <div className="bg-card border rounded-xl overflow-hidden">
+            <div className="px-4 pt-3 pb-2">
+              <h2 className="text-sm font-medium text-foreground">Pipeline Overview</h2>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-t text-xs text-muted-foreground">
+                  <th className="text-left font-medium px-4 py-2">Type</th>
+                  <th className="text-right font-medium px-4 py-2">Active Deals</th>
+                  <th className="text-right font-medium px-4 py-2">Volume</th>
+                  <th className="text-right font-medium px-4 py-2">Win Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pipelineRows.map((row) => {
+                  const count = row.key === "application" ? data.applicationsTotal : (data.dealCounts[row.key] ?? 0);
+                  const wr = data.winRates[row.wrKey];
+                  return (
+                    <tr key={row.key} className="border-t hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-2.5 font-medium text-foreground">{row.label}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">{count}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground" title={`$${row.rawVolume.toLocaleString()}`}>
+                        {formatMoney(row.volume)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {wr.total > 0 ? (
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${wr.rate > 50 ? "bg-green-500/15 text-green-600" : "bg-red-500/15 text-red-600"}`}>
+                            {wr.rate}%
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">&mdash;</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           {/* Stage Distribution */}
           <div className="bg-card border rounded-xl p-4 space-y-3">
             <h2 className="text-sm font-medium text-foreground">Stage Distribution</h2>
             {Object.entries(stagesByType).map(([type, stages]) => {
               const total = stages.reduce((s, r) => s + r.count, 0);
+              const route = DEAL_TYPE_ROUTES[type];
               return (
                 <div key={type} className="space-y-1">
                   <span className="text-xs text-muted-foreground">{DEAL_TYPE_LABELS[type] || type} ({total})</span>
                   <div className="flex gap-0.5 h-7 rounded-md overflow-visible">
                     {stages.map((s) => (
                       <div key={s.stageName}
-                        className="relative flex items-center justify-center px-2 min-w-0 group cursor-default transition-all duration-200"
+                        className="relative flex items-center justify-center px-2 min-w-0 group cursor-pointer transition-all duration-200"
                         style={{ backgroundColor: s.stageColor + "28", borderBottom: `2px solid ${s.stageColor}80`, flex: s.count }}
+                        onClick={() => {
+                          if (route) router.push(`${route}?stage=${encodeURIComponent(s.stageName)}`);
+                        }}
                       >
                         {/* Hover brighten overlay */}
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-sm"
@@ -272,15 +244,19 @@ export default function DashboardPage() {
             {Object.keys(stagesByType).length === 0 && <p className="text-xs text-muted-foreground">No active deals</p>}
           </div>
 
-          {/* Metrics row */}
+          {/* Bottom row: Flagged Deals | Showings | Tasks */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-card border rounded-xl p-4 space-y-2">
               <h2 className="text-sm font-medium">Flagged Deals</h2>
-              <div className="flex gap-4 text-xs">
-                <div><span className="text-muted-foreground">Stale</span><p className="text-lg font-semibold">{data.flagCounts.stale}</p></div>
-                <div><span className="text-muted-foreground">Stuck</span><p className="text-lg font-semibold">{data.flagCounts.stageStuck}</p></div>
-                <div><span className="text-muted-foreground">Agent</span><p className="text-lg font-semibold">{data.flagCounts.agentTooLong}</p></div>
-              </div>
+              {allFlagsClear ? (
+                <p className="text-xs text-muted-foreground">&#10003; All clear</p>
+              ) : (
+                <div className="flex gap-4 text-xs">
+                  <div><span className="text-muted-foreground">Stale</span><p className="text-lg font-semibold">{data.flagCounts.stale}</p></div>
+                  <div><span className="text-muted-foreground">Stuck</span><p className="text-lg font-semibold">{data.flagCounts.stageStuck}</p></div>
+                  <div><span className="text-muted-foreground">Agent</span><p className="text-lg font-semibold">{data.flagCounts.agentTooLong}</p></div>
+                </div>
+              )}
             </div>
             <div className="bg-card border rounded-xl p-4">
               <h2 className="text-sm font-medium mb-2">Showings</h2>
@@ -297,8 +273,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-
-
 
       </div>
     </div>
