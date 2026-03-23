@@ -14,7 +14,13 @@ export async function getCurrentUser() {
     return user ?? null;
   }
 
-  const { userId } = await auth();
+  let userId: string | null = null;
+  try {
+    const authResult = await auth();
+    userId = authResult.userId;
+  } catch {
+    return null;
+  }
   if (!userId) return null;
 
   // Try by clerkId first
