@@ -240,12 +240,29 @@ export default function DashboardPage() {
               return (
                 <div key={type} className="space-y-1">
                   <span className="text-xs text-muted-foreground">{DEAL_TYPE_LABELS[type] || type} ({total})</span>
-                  <div className="flex gap-0.5 h-7 rounded-md overflow-hidden">
+                  <div className="flex gap-0.5 h-7 rounded-md overflow-visible">
                     {stages.map((s) => (
-                      <div key={s.stageName} className="flex items-center justify-center px-2 min-w-0 relative group"
+                      <div key={s.stageName}
+                        className="relative flex items-center justify-center px-2 min-w-0 group cursor-default transition-all duration-200"
                         style={{ backgroundColor: s.stageColor + "28", borderBottom: `2px solid ${s.stageColor}80`, flex: s.count }}
-                        title={`${s.stageName}: ${s.count}`}>
-                        <span className="text-[10px] truncate font-medium" style={{ color: s.stageColor }}>{s.stageName} ({s.count})</span>
+                      >
+                        {/* Hover brighten overlay */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-sm"
+                          style={{ backgroundColor: s.stageColor + "40" }} />
+                        {/* Normal text — hidden on hover */}
+                        <span className="relative text-[10px] truncate font-medium opacity-50 group-hover:opacity-0 transition-opacity duration-150 pointer-events-none"
+                          style={{ color: s.stageColor }}>
+                          {s.count}
+                        </span>
+                        {/* Hover tooltip — full label */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap">
+                          <div className="rounded-md px-2.5 py-1.5 text-[11px] font-medium shadow-lg border border-border/60"
+                            style={{ backgroundColor: s.stageColor, color: "#fff" }}>
+                            {s.stageName} · {s.count}
+                          </div>
+                          <div className="w-2 h-2 rotate-45 mx-auto -mt-1 border-r border-b border-border/60"
+                            style={{ backgroundColor: s.stageColor }} />
+                        </div>
                       </div>
                     ))}
                   </div>
