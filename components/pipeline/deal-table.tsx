@@ -687,10 +687,10 @@ export function DealTable({
     const primary = data.primaryField ?? data.address ?? data.client ?? data.applicant
     if (primary) apiPayload.title = primary as string
 
-    // Address fields — only send if non-empty (address is NOT NULL in DB)
+    // Address fields — only send if non-empty (address & borough are NOT NULL in DB)
     if (data.address && String(data.address).trim()) apiPayload.address = data.address
     if (data.unit !== undefined) apiPayload.unit = data.unit || null
-    if (data.borough !== undefined) apiPayload.borough = data.borough || null
+    if (data.borough && String(data.borough).trim()) apiPayload.borough = data.borough
     if (data.neighborhood !== undefined) apiPayload.neighborhood = data.neighborhood
 
     // Price — handle all aliases (price, budget, commission, application_price)
@@ -702,8 +702,6 @@ export function DealTable({
     // Other fields
     if (data.notes !== undefined) apiPayload.notes = data.notes
     if (data.source !== undefined) apiPayload.source = data.source || null
-    if (data.email !== undefined) apiPayload.clientEmail = data.email
-    if (data.phone !== undefined) apiPayload.clientPhone = data.phone
     if (data.move_in_date !== undefined) apiPayload.leaseStartDate = data.move_in_date || null
     if (data.stage) {
       const ctxStages = getStages(dealTypeKey)
@@ -732,10 +730,15 @@ export function DealTable({
         const found = ctxStages.find((s) => s.name === data.stage || s.id === data.stage)
         if (found) stateUpdates.stage = found
       }
-      // Rebuild agents from API response
+      // Rebuild agents from API response — map to Deal format using userId, not dealAgent row id
       if (updated.agents) {
         stateUpdates.agents = updated.agents
-          .filter((a: { removedAt?: string | null; user?: { name?: string } }) => !a.removedAt && a.user?.name && a.user.name !== "[deleted]")
+          .filter((a: { removedAt?: string | null; user?: { id?: string; name?: string } }) => !a.removedAt && a.user?.name && a.user.name !== "[deleted]")
+          .map((a: { userId?: string; user?: { id?: string; name?: string }; removedAt?: string | null }, i: number) => {
+            const agentId = a.userId || a.user?.id || ""
+            const agentName = a.user?.name || "Agent"
+            return { id: agentId, name: agentName, color: resolveAgentColor(agentId, agentName), position: i }
+          })
       }
       updateDeal(dealTypeKey, editingDeal.id, stateUpdates)
       toast.success("Deal saved")

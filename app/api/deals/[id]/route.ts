@@ -64,9 +64,24 @@ function normalizeDealPayload(payload: Record<string, unknown>): Partial<DealIns
   delete normalized.email;
   delete normalized.phone;
 
-  // Never allow null/empty for required fields
+  // Never allow null/empty for NOT NULL required fields
   if (!normalized.address) delete normalized.address;
   if (!normalized.title) delete normalized.title;
+  if (!normalized.borough) delete normalized.borough;
+
+  // Whitelist: only allow known deals columns through to prevent SQL errors
+  const VALID_DEAL_COLUMNS = new Set([
+    "dealType", "title", "address", "unit", "borough", "neighborhood", "zip",
+    "buildingId", "price", "status", "source", "notes", "stageId",
+    "leaseStartDate", "leaseEndDate", "listedAt", "archivedAt", "archiveReason",
+    "showingScheduledAt", "showingAgentId", "commission", "applicationPrice",
+    "commissionData",
+  ]);
+  for (const key of Object.keys(normalized)) {
+    if (!VALID_DEAL_COLUMNS.has(key)) {
+      delete (normalized as Record<string, unknown>)[key];
+    }
+  }
 
   return normalized as Partial<DealInsert>;
 }
