@@ -72,7 +72,6 @@ export default function WhoAreYouPage() {
         <div className="flex justify-center mb-6">
           <div className="flex flex-col items-center gap-1">
             <img src="/fm-logo.png" alt="FM" className="h-10 w-auto object-contain" />
-            <span className="text-[9px] text-gray-500 opacity-40">powered by door</span>
           </div>
         </div>
 

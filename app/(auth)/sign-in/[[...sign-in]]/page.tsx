@@ -9,7 +9,6 @@ export default function SignInPage() {
       <div className="hidden lg:flex lg:w-[60%] items-center justify-center bg-[#111]">
         <div className="text-center flex flex-col items-center gap-2">
           <Image src="/fm-logo.png" alt="FM" width={180} height={80} className="object-contain" />
-          <p className="text-[11px] text-gray-600 opacity-50 -mt-1">powered by door</p>
           <p className="mt-3 text-lg text-gray-400">Real estate. Quantified.</p>
         </div>
       </div>
@@ -17,7 +16,6 @@ export default function SignInPage() {
         <div className="w-full max-w-sm px-8">
           <div className="lg:hidden mb-8 flex flex-col items-center gap-1">
             <Image src="/fm-logo.png" alt="FM" width={120} height={54} className="object-contain" />
-            <p className="text-[10px] text-gray-400 opacity-50">powered by door</p>
             <p className="mt-2 text-sm text-gray-500">Real estate. Quantified.</p>
           </div>
           <SignIn

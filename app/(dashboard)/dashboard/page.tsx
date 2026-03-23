@@ -240,12 +240,12 @@ export default function DashboardPage() {
               return (
                 <div key={type} className="space-y-1">
                   <span className="text-xs text-muted-foreground">{DEAL_TYPE_LABELS[type] || type} ({total})</span>
-                  <div className="flex gap-0.5 rounded-md overflow-hidden">
+                  <div className="flex gap-0.5 h-7 rounded-md overflow-hidden">
                     {stages.map((s) => (
-                      <div key={s.stageName} className="flex items-center justify-center px-2 py-1.5 min-w-0"
-                        style={{ backgroundColor: s.stageColor, flex: s.count }}
+                      <div key={s.stageName} className="flex items-center justify-center px-2 min-w-0 relative group"
+                        style={{ backgroundColor: s.stageColor + "28", borderBottom: `2px solid ${s.stageColor}80`, flex: s.count }}
                         title={`${s.stageName}: ${s.count}`}>
-                        <span className="text-[10px] text-white truncate font-medium drop-shadow-sm">{s.stageName} ({s.count})</span>
+                        <span className="text-[10px] truncate font-medium" style={{ color: s.stageColor }}>{s.stageName} ({s.count})</span>
                       </div>
                     ))}
                   </div>
