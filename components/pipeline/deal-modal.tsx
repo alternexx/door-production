@@ -262,7 +262,11 @@ export function DealModal({
       .catch(() => setBuildings([]))
   }, [open])
 
-  const DIRTY_FIELDS = new Set(["stage", "notes", "address", "unit", "price", "email", "phone"])
+  const DIRTY_FIELDS = new Set([
+    "stage", "notes", "address", "unit", "price", "email", "phone",
+    "client", "applicant", "budget", "commission", "application_price",
+    "move_in_date", "borough", "neighborhood", "source", "showsheet_url",
+  ])
 
   const setField = useCallback((key: string, value: unknown) => {
     setForm((prev) => ({ ...prev, [key]: value }))
