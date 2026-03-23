@@ -329,7 +329,8 @@ export function DealModal({
     if (isEdit && isDirty) {
       const payload: Record<string, unknown> = { ...form, agent_ids: selectedAgentIds }
       if (payload.source === "") payload.source = null
-      try { await onSave(payload) } catch { /* silent */ }
+      console.log("[DealModal] saving on close, payload:", payload)
+      try { await onSave(payload) } catch (e) { console.error("Save on close failed:", e) }
     }
     onClose()
   }, [isEdit, isDirty, form, selectedAgentIds, onSave, onClose])
