@@ -188,13 +188,18 @@ export async function GET() {
         and(eq(deals.dealType, "application"), eq(deals.status, "active"))
       ),
 
-    // applications price total (sum of application_price for active application deals)
-    db
-      .select({ total: sql<number>`coalesce(sum(${deals.applicationPrice}::numeric), 0)::numeric` })
-      .from(deals)
-      .where(
-        and(eq(deals.dealType, "application"), eq(deals.status, "active"))
-      ),
+    // applications price total — derive from matched rental price by address, fallback to application_price
+    db.execute(sql`
+      SELECT COALESCE(SUM(
+        COALESCE(
+          (SELECT r.price FROM deals r WHERE r.deal_type = 'rental' AND LOWER(TRIM(r.address)) = LOWER(TRIM(a.address)) LIMIT 1),
+          a.application_price::numeric,
+          0
+        )
+      ), 0) as total
+      FROM deals a
+      WHERE a.deal_type = 'application' AND a.status = 'active'
+    `),
 
     // rental wins
     db.select({ count: sql<number>`count(*)::int` }).from(deals)
@@ -315,7 +320,7 @@ export async function GET() {
     },
     dealCounts: dealCountsByType,
     applicationsTotal: applicationsTotalResult[0]?.count ?? 0,
-    applicationsPriceTotal: Number(applicationsPriceTotalResult[0]?.total ?? 0),
+    applicationsPriceTotal: Number((applicationsPriceTotalResult as unknown as { rows: Array<{ total: number }> }).rows[0]?.total ?? 0),
     applicationsWinRate: {
       wins,
       losses,
