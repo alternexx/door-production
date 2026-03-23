@@ -1915,9 +1915,7 @@ export function DealTable({
       case "actions": {
         // Archived deals — no action buttons, only unarchive for admin if enabled
         if (deal.isArchived) {
-          const allowUnarchive = typeof window !== "undefined"
-            ? localStorage.getItem("door-config-allow-unarchive") !== "false"
-            : true
+          const allowUnarchive = isAdmin
           return (
             <div className="flex items-center gap-0.5">
               <button
