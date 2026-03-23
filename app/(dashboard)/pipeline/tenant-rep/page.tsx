@@ -1,14 +1,10 @@
 "use client";
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-
-const PipelinePage = dynamic(
-  () => import("@/components/pipeline/pipeline-page").then((m) => m.PipelinePage),
-  { ssr: false }
-);
-
-export default function Page() {
+const PipelinePage = dynamic(() => import("@/components/pipeline/pipeline-page").then((m) => m.PipelinePage), { ssr: false });
+function PageInner() {
   const searchParams = useSearchParams();
-  const stage = searchParams.get("stage");
-  return <PipelinePage dealType="tenant_rep" initialStage={stage} />;
+  return <PipelinePage dealType="tenant_rep" initialStage={searchParams.get("stage")} />;
 }
+export default function Page() { return <Suspense><PageInner /></Suspense>; }
