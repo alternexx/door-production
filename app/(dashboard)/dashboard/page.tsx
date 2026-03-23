@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -140,25 +138,6 @@ export default function DashboardPage() {
             <span className="text-xs text-muted-foreground">{today}</span>
           </div>
 
-          {/* This Week Summary */}
-          <div className="flex gap-3">
-            <div className="flex-1 bg-card border rounded-xl px-4 py-3 flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">Created</span>
-              <span className="text-lg font-semibold text-foreground">{data.dealsCreatedThisWeek}</span>
-            </div>
-            <div className="flex-1 bg-card border rounded-xl px-4 py-3 flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">Closed</span>
-              <span className="text-lg font-semibold text-foreground">{data.dealsClosedThisWeek}</span>
-            </div>
-            <div className="flex-1 bg-card border rounded-xl px-4 py-3 flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">Stage Moves</span>
-              <span className="text-lg font-semibold text-foreground">{data.stageChangesThisWeek}</span>
-            </div>
-            <div className="flex-none bg-muted/50 border rounded-xl px-3 py-3 flex items-center">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">This Week</span>
-            </div>
-          </div>
-
           {/* Pipeline Overview — merged table */}
           <div className="bg-card border rounded-xl overflow-hidden">
             <div className="px-4 pt-3 pb-2">
@@ -244,6 +223,14 @@ export default function DashboardPage() {
               );
             })}
             {Object.keys(stagesByType).length === 0 && <p className="text-xs text-muted-foreground">No active deals</p>}
+          </div>
+
+          {/* This Week — compact inline */}
+          <div className="flex items-center gap-4 px-1 text-xs text-muted-foreground">
+            <span className="uppercase tracking-wider text-[10px] font-medium">This Week</span>
+            <span>Created <span className="font-medium text-foreground">{data.dealsCreatedThisWeek}</span></span>
+            <span>Closed <span className="font-medium text-foreground">{data.dealsClosedThisWeek}</span></span>
+            <span>Stage Moves <span className="font-medium text-foreground">{data.stageChangesThisWeek}</span></span>
           </div>
 
           {/* Bottom row: Flagged Deals | Showings | Tasks */}
