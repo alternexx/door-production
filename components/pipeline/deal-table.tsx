@@ -311,6 +311,23 @@ export function DealTable({
   // Column config
   const [columns, setColumns] = useState<ColumnConfig[]>([])
 
+  // Dismissed agent-duration flags (per deal)
+  const [dismissedAgentFlags, setDismissedAgentFlags] = useState<Set<string>>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("door-dismissed-agent-flags") : null
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+    } catch { return new Set() }
+  })
+
+  const dismissAgentFlag = (dealId: string) => {
+    setDismissedAgentFlags(prev => {
+      const next = new Set(prev)
+      next.add(dealId)
+      localStorage.setItem("door-dismissed-agent-flags", JSON.stringify([...next]))
+      return next
+    })
+  }
+
   // Notes peek state
   const [hoveredDeal, setHoveredDeal] = useState<Deal | null>(null)
   const [pinnedNoteDeal, setPinnedNoteDeal] = useState<Deal | null>(null)
@@ -505,7 +522,7 @@ export function DealTable({
         const creDays = Math.floor((now - creMs) / 86400000)
         if (localStorage.getItem("door-config-alert-stale-tag") !== "false" && updDays >= staleDays) return true
         if (localStorage.getItem("door-config-alert-stage-no-change") !== "false" && updDays >= stuckDays) return true
-        if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false" && creDays >= agentDays && resolveDealAgents(d).length > 0) return true
+        if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false" && !dismissedAgentFlags.has(d.id) && creDays >= agentDays && resolveDealAgents(d).length > 0) return true
         return false
       })
     }
@@ -578,7 +595,7 @@ export function DealTable({
         const agents = (d.agents || [])
         if (localStorage.getItem("door-config-alert-stale-tag") !== "false" && updDays >= staleDays) return true
         if (localStorage.getItem("door-config-alert-stage-no-change") !== "false" && updDays >= stuckDays) return true
-        if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false" && creDays >= agentDays && agents.length > 0) return true
+        if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false" && !dismissedAgentFlags.has(d.id) && creDays >= agentDays && agents.length > 0) return true
         return false
       }
       result = [
@@ -1321,8 +1338,8 @@ export function DealTable({
         if (d >= stageStuckDays) flagMessages.push(`Stage stuck — no stage change for ${d}d`)
       }
 
-      // Agent too long flag
-      if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false") {
+      // Agent too long flag (skip if dismissed for this deal)
+      if (localStorage.getItem("door-config-alert-agent-deal-duration") !== "false" && !dismissedAgentFlags.has(deal.id)) {
         const agentDealDays = parseInt(localStorage.getItem("door-config-threshold-agent-deal-days") || "30", 10)
         const d = daysSinceMs(createdMs)
         if (d >= agentDealDays && resolvedAgents.length > 0) flagMessages.push(`Agent on deal for ${d}d`)
@@ -1336,11 +1353,17 @@ export function DealTable({
       : "#f59e0b"
       : null
 
+    const hasAgentFlag = flagMessages.some(m => m.startsWith("Agent on deal"))
     const flagIndicator = hasFlags ? (
       <span
         className="relative inline-flex items-center ml-1.5 shrink-0"
-        title={flagMessages.join(" · ")}
-        style={{ cursor: "default" }}
+        title={flagMessages.join(" · ") + (hasAgentFlag ? " — right-click to dismiss" : "")}
+        style={{ cursor: hasAgentFlag ? "context-menu" : "default" }}
+        onContextMenu={hasAgentFlag ? (e) => {
+          e.preventDefault()
+          dismissAgentFlag(deal.id)
+          toast.success("Agent-duration flag dismissed")
+        } : undefined}
       >
         {/* Outer pulse ring */}
         <span
