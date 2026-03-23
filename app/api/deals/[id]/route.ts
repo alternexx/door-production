@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { deals, dealAgents, dealHistory, dealStageHistory, pipelineStages, users } from "@/db/schema";
+import { deals, dealAgents, dealHistory, dealStageHistory, pipelineStages } from "@/db/schema";
 import { and, desc, eq, isNull } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
 
 type DealInsert = typeof deals.$inferInsert;
 type DealRow = typeof deals.$inferSelect;
@@ -53,8 +54,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Auth disabled for now — Clerk not configured
-    const userId: string | null = null;
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await req.json();
     const { agentIds, ...dealData } = body;
@@ -71,11 +75,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const [authedUser] = userId
-      ? await db.select().from(users).where(eq(users.clerkId, userId)).limit(1)
-      : [];
-    const changedById = authedUser?.id ?? existingDeal.createdBy;
-    const changedByName = authedUser?.name ?? "System";
+    const changedById = currentUser.id;
+    const changedByName = currentUser.name;
 
     const now = new Date();
     const changedFields = Object.entries(normalizedDealData).filter(([field, newValue]) => {

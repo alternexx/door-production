@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
       oldValue: null,
       newValue: "created",
       changedById: newDeal.createdBy,
-      changedByName: "System",
+      changedByName: currentUser?.name ?? "System",
       changedAt: new Date(),
     });
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { tasks, taskHistory, dealHistory, deals, users } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { tasks, taskHistory, dealHistory, deals } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
 
 const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 const STATUSES = ["todo", "in_progress", "completed"] as const;
@@ -33,32 +34,14 @@ function normalizeTaskRow<T extends { status: string; priority: string }>(row: T
   };
 }
 
-async function getRequestUser() {
-  const [admin] = await db
-    .select()
-    .from(users)
-    .where(and(eq(users.role, "admin"), eq(users.isActive, true)))
-    .limit(1);
-
-  if (admin) return admin;
-
-  const [activeUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.isActive, true))
-    .limit(1);
-
-  return activeUser;
-}
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await getRequestUser();
+    const currentUser = await getCurrentUser();
     if (!currentUser) {
-      return NextResponse.json({ error: "No user found" }, { status: 404 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
@@ -238,9 +221,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await getRequestUser();
+    const currentUser = await getCurrentUser();
     if (!currentUser) {
-      return NextResponse.json({ error: "No user found" }, { status: 404 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;

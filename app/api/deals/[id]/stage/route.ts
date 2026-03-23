@@ -5,34 +5,22 @@ import {
   dealStageHistory,
   dealHistory,
   showings,
-  users,
   pipelineStages,
 } from "@/db/schema";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { stageChangeSchema } from "@/lib/validations";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth disabled for now — Clerk not configured
-  const userId: string | null = null;
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { id } = await params;
-
-  // Get current user from Clerk ID, or fall back to first admin
-  let currentUser = userId
-    ? (await db.select().from(users).where(eq(users.clerkId, userId)).limit(1))[0]
-    : undefined;
-
-  if (!currentUser) {
-    // Fallback to first admin user for unauthenticated requests
-    currentUser = (await db.select().from(users).where(eq(users.role, "admin")).limit(1))[0];
-  }
-
-  if (!currentUser) {
-    return NextResponse.json({ error: "No user found" }, { status: 404 });
-  }
 
   const [existingDeal] = await db
     .select()

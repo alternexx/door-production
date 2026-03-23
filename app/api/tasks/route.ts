@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { tasks, taskHistory, dealHistory, deals, users } from "@/db/schema";
+import { tasks, taskHistory, dealHistory, deals } from "@/db/schema";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
 
 const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 const STATUSES = ["todo", "in_progress", "completed"] as const;
@@ -33,24 +34,6 @@ function normalizeTaskRow<T extends { status: string; priority: string }>(row: T
   };
 }
 
-async function getRequestUser() {
-  const [admin] = await db
-    .select()
-    .from(users)
-    .where(and(eq(users.role, "admin"), eq(users.isActive, true)))
-    .limit(1);
-
-  if (admin) return admin;
-
-  const [activeUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.isActive, true))
-    .limit(1);
-
-  return activeUser;
-}
-
 export async function GET(req: NextRequest) {
   try {
     const dealId = req.nextUrl.searchParams.get("deal_id");
@@ -64,9 +47,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (assignedTo === "me") {
-      const currentUser = await getRequestUser();
+      const currentUser = await getCurrentUser();
       if (!currentUser) {
-        return NextResponse.json({ error: "No user found" }, { status: 404 });
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       whereClauses.push(eq(tasks.assignedTo, currentUser.id));
     } else if (assignedTo) {
@@ -102,9 +85,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const currentUser = await getRequestUser();
+    const currentUser = await getCurrentUser();
     if (!currentUser) {
-      return NextResponse.json({ error: "No user found" }, { status: 404 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
