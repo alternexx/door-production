@@ -154,25 +154,7 @@ export function Sidebar() {
           />
         ))}
 
-        {!effectiveCollapsed && (
-          <div className="px-3 py-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--fm-text-secondary)]/60">
-              Data
-            </span>
-          </div>
-        )}
 
-        {dataItems.map((item) => (
-          <NavItem
-            key={item.href}
-            href={item.href}
-            label={item.label}
-            icon={item.icon}
-            isActive={isActive(item.href)}
-            collapsed={effectiveCollapsed}
-            onClick={() => setMobileOpen(false)}
-          />
-        ))}
 
         {isAdmin && (
           <>
