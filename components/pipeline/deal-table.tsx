@@ -194,6 +194,7 @@ interface DealTableProps {
   isAdmin?: boolean
   applicationStages?: StageOption[]
   fullHeight?: boolean
+  initialStage?: string | null
 }
 
 type SortKey = "primaryField" | "stage" | "updatedAt" | "price" | "borough" | "pipeline_position" | "activity" | "move_in_date" | "days_on_market" | "stale"
@@ -211,6 +212,7 @@ export function DealTable({
   isAdmin = false,
   applicationStages = [],
   fullHeight = false,
+  initialStage = null,
 }: DealTableProps) {
   const { mode: agentDisplayMode } = useAgentDisplay()
   const { updateDeal, removeDeal, archiveDeal, addDeal, addHistoryEntry, getStages, currentAgent, reloadDeal } = useDealContext()
@@ -231,7 +233,7 @@ export function DealTable({
   // Core state
   const [deals, setDeals] = useState(initialDeals)
   const [search, setSearch] = useState("")
-  const [stageFilter, setStageFilter] = useState<string>("all")
+  const [stageFilter, setStageFilter] = useState<string>(initialStage || "all")
   const [sortKey, setSortKey] = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir] = useState<SortDir>("desc")
 

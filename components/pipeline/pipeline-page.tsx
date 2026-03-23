@@ -26,6 +26,7 @@ function resolveAgentColor(agentId: string, agentName: string): string {
 
 interface PipelinePageProps {
   dealType: DealType;
+  initialStage?: string | null;
 }
 
 const DEAL_TYPE_CONFIG: Record<DealType, {
@@ -41,7 +42,7 @@ const DEAL_TYPE_CONFIG: Record<DealType, {
   tenant_rep: { title: "Tenant Rep", primaryFieldLabel: "Client", showPrice: false, showDaysOnMarket: false },
 };
 
-export function PipelinePage({ dealType }: PipelinePageProps) {
+export function PipelinePage({ dealType, initialStage }: PipelinePageProps) {
   const { getDeals, getStages, agents, addDeal, updateDeal, archiveDeal, addHistoryEntry, currentAgent } = useDealContext();
   const [addModalOpen, setAddModalOpen] = useState(false);
 
@@ -182,6 +183,7 @@ export function PipelinePage({ dealType }: PipelinePageProps) {
           currentUserId={currentAgent?.id}
           isAdmin={currentAgent?.role === "admin"}
           fullHeight
+          initialStage={initialStage}
         />
       </div>
 

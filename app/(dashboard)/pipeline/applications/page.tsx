@@ -1,5 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 
 const PipelinePage = dynamic(
   () => import("@/components/pipeline/pipeline-page").then((m) => m.PipelinePage),
@@ -7,5 +8,7 @@ const PipelinePage = dynamic(
 );
 
 export default function Page() {
-  return <PipelinePage dealType="application" />;
+  const searchParams = useSearchParams();
+  const stage = searchParams.get("stage");
+  return <PipelinePage dealType="application" initialStage={stage} />;
 }
