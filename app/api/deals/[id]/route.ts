@@ -27,19 +27,44 @@ function valuesAreDifferent(oldValue: unknown, newValue: unknown): boolean {
 }
 
 function normalizeDealPayload(payload: Record<string, unknown>): Partial<DealInsert> {
-  const normalized = { ...payload } as Partial<DealInsert> & { property?: unknown };
-  const legacyProperty = normalized.property;
-  const address = normalized.address;
+  const normalized = { ...payload } as Partial<DealInsert> & Record<string, unknown>;
 
-  if (!address && typeof legacyProperty === "string" && legacyProperty.trim()) {
-    normalized.address = legacyProperty;
-  }
-  if (!normalized.title && typeof normalized.address === "string" && normalized.address.trim()) {
-    normalized.title = normalized.address;
+  // Legacy field aliases
+  if (!normalized.address && normalized.property) normalized.address = normalized.property as string;
+  if (!normalized.title && normalized.address) normalized.title = normalized.address as string;
+  if (!normalized.title && (normalized.client || normalized.applicant)) {
+    normalized.title = (normalized.client ?? normalized.applicant) as string;
   }
 
+  // Price aliases
+  if (normalized.budget !== undefined && normalized.price === undefined) {
+    normalized.price = normalized.budget ? Number(String(normalized.budget).replace(/[^0-9.]/g, "")) : null;
+  }
+
+  // applicationPrice camelCase alias
+  if ((normalized as Record<string, unknown>).applicationPrice !== undefined) {
+    normalized.applicationPrice = (normalized as Record<string, unknown>).applicationPrice as string | null;
+  }
+
+  // leaseStartDate from move_in_date
+  if (normalized.move_in_date !== undefined && normalized.leaseStartDate === undefined) {
+    normalized.leaseStartDate = normalized.move_in_date as string | null;
+  }
+
+  // clientEmail/clientPhone
+  if (normalized.email !== undefined && normalized.clientEmail === undefined) normalized.clientEmail = normalized.email as string;
+  if (normalized.phone !== undefined && normalized.clientPhone === undefined) normalized.clientPhone = normalized.phone as string;
+
+  // Clean up non-DB keys
   delete normalized.property;
-  return normalized;
+  delete normalized.client;
+  delete normalized.applicant;
+  delete normalized.budget;
+  delete normalized.move_in_date;
+  delete normalized.email;
+  delete normalized.phone;
+
+  return normalized as Partial<DealInsert>;
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

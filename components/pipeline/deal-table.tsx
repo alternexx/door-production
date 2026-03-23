@@ -680,16 +680,31 @@ export function DealTable({
   const handleSaveEditDeal = async (data: Record<string, unknown>) => {
     if (!editingDeal) return
 
-    // Build API payload
+    // Build API payload — map all deal-type-specific field names to DB columns
     const apiPayload: Record<string, unknown> = {}
-    if (data.primaryField) apiPayload.title = data.primaryField as string
+
+    // Primary field (address, client, applicant depending on deal type)
+    const primary = data.primaryField ?? data.address ?? data.client ?? data.applicant
+    if (primary) apiPayload.title = primary as string
+
+    // Address fields
     if (data.address !== undefined) apiPayload.address = data.address
     if (data.unit !== undefined) apiPayload.unit = data.unit
-    if (data.borough) apiPayload.borough = data.borough
+    if (data.borough !== undefined) apiPayload.borough = data.borough || null
     if (data.neighborhood !== undefined) apiPayload.neighborhood = data.neighborhood
-    if (data.price !== undefined) apiPayload.price = data.price ? Number(String(data.price).replace(/[^0-9.]/g, "")) : null
+
+    // Price — handle all aliases (price, budget, commission, application_price)
+    const priceRaw = data.price ?? data.budget ?? null
+    if (priceRaw !== undefined) apiPayload.price = priceRaw ? Number(String(priceRaw).replace(/[^0-9.]/g, "")) : null
+    if (data.commission !== undefined) apiPayload.commission = data.commission ? Number(String(data.commission).replace(/[^0-9.]/g, "")) : null
+    if (data.application_price !== undefined) apiPayload.applicationPrice = data.application_price ? Number(String(data.application_price).replace(/[^0-9.]/g, "")) : null
+
+    // Other fields
     if (data.notes !== undefined) apiPayload.notes = data.notes
     if (data.source !== undefined) apiPayload.source = data.source || null
+    if (data.email !== undefined) apiPayload.clientEmail = data.email
+    if (data.phone !== undefined) apiPayload.clientPhone = data.phone
+    if (data.move_in_date !== undefined) apiPayload.leaseStartDate = data.move_in_date || null
     if (data.stage) {
       const ctxStages = getStages(dealTypeKey)
       const found = ctxStages.find((s) => s.name === data.stage || s.id === data.stage)
