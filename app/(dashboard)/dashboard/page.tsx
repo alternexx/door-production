@@ -171,6 +171,7 @@ export default function DashboardPage() {
                   <th className="text-right font-medium px-4 py-2">Active Deals</th>
                   <th className="text-right font-medium px-4 py-2">Volume</th>
                   <th className="text-right font-medium px-4 py-2">Win Rate</th>
+                  <th className="w-8"></th>
                 </tr>
               </thead>
               <tbody>
@@ -178,7 +179,7 @@ export default function DashboardPage() {
                   const count = row.key === "application" ? data.applicationsTotal : (data.dealCounts[row.key] ?? 0);
                   const wr = data.winRates[row.wrKey];
                   return (
-                    <tr key={row.key} className="border-t hover:bg-muted/30 transition-colors">
+                    <tr key={row.key} className="border-t hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => router.push(DEAL_TYPE_ROUTES[row.key])}>
                       <td className="px-4 py-2.5 font-medium text-foreground">{row.label}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{count}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground" title={`$${row.rawVolume.toLocaleString()}`}>
@@ -193,6 +194,7 @@ export default function DashboardPage() {
                           <span className="text-xs text-muted-foreground">&mdash;</span>
                         )}
                       </td>
+                      <td className="px-2 py-2.5 text-muted-foreground/50 text-sm">&rarr;</td>
                     </tr>
                   );
                 })}
