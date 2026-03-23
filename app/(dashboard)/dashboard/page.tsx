@@ -298,48 +298,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Team + Activity row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {/* Team */}
-            <div className="bg-card border rounded-xl p-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Team</p>
-              {data.agents.map((a) => (
-                <div key={a.id} className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full shrink-0 ${presenceDot(a.lastActiveAt, a.isActive)}`} />
-                  <span className="text-xs font-medium text-foreground truncate flex-1">{a.name}</span>
-                  <span className={`text-[10px] ${!a.isActive ? "text-muted-foreground/50 italic" : "text-muted-foreground"}`}>{presenceLabel(a.lastActiveAt, a.isActive)}</span>
-                  <span className="text-[10px] text-muted-foreground ml-2">{data.agentDealCounts[a.id] ?? 0} deals</span>
-                </div>
-              ))}
-              {data.agents.length === 0 && (
-                <p className="text-xs text-muted-foreground">No agents</p>
-              )}
-            </div>
 
-            {/* Activity */}
-            <div className="bg-card border rounded-xl p-4 flex flex-col max-h-[240px] overflow-hidden">
-              <div className="flex items-center justify-between mb-2 shrink-0">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Activity</p>
-                <span className="text-[10px] text-muted-foreground">{data.stageChangesToday} today</span>
-              </div>
-              <div className="overflow-y-auto space-y-1.5">
-                {data.activityFeed.slice(0, 20).map((entry, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs py-1 border-b border-border/30 last:border-0">
-                    <div className={`h-2 w-2 rounded-full mt-1 shrink-0 ${FIELD_DOT_COLORS[entry.field] || "bg-muted-foreground"}`} />
-                    <div className="min-w-0 flex-1">
-                      <span className="font-medium text-foreground">{entry.changedByName}</span>{" "}
-                      <span className="text-muted-foreground">
-                        changed <span className="text-foreground">{entry.field}</span>
-                        {entry.newValue && <> → <span className="text-foreground">{entry.newValue}</span></>}
-                      </span>
-                      <div className="text-muted-foreground/60 mt-0.5">{relativeTime(entry.changedAt)}</div>
-                    </div>
-                  </div>
-                ))}
-                {data.activityFeed.length === 0 && <p className="text-xs text-muted-foreground">No activity yet</p>}
-              </div>
-            </div>
-          </div>
 
       </div>
     </div>
