@@ -64,6 +64,10 @@ function normalizeDealPayload(payload: Record<string, unknown>): Partial<DealIns
   delete normalized.email;
   delete normalized.phone;
 
+  // Never allow null/empty for required fields
+  if (!normalized.address) delete normalized.address;
+  if (!normalized.title) delete normalized.title;
+
   return normalized as Partial<DealInsert>;
 }
 

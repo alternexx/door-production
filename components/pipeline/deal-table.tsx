@@ -687,9 +687,9 @@ export function DealTable({
     const primary = data.primaryField ?? data.address ?? data.client ?? data.applicant
     if (primary) apiPayload.title = primary as string
 
-    // Address fields
-    if (data.address !== undefined) apiPayload.address = data.address
-    if (data.unit !== undefined) apiPayload.unit = data.unit
+    // Address fields — only send if non-empty (address is NOT NULL in DB)
+    if (data.address && String(data.address).trim()) apiPayload.address = data.address
+    if (data.unit !== undefined) apiPayload.unit = data.unit || null
     if (data.borough !== undefined) apiPayload.borough = data.borough || null
     if (data.neighborhood !== undefined) apiPayload.neighborhood = data.neighborhood
 
